@@ -4,6 +4,8 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/xomoxcc/sipstuff?logo=docker)](https://hub.docker.com/r/xomoxcc/sipstuff/tags)
 [![PyPI](https://img.shields.io/pypi/v/sipstuff?logo=pypi&logoColor=white)](https://pypi.org/project/sipstuff/)
 
+[![Gemini_Generated_Image_23m8jo23m8jo23m8_250x250.png](https://raw.githubusercontent.com/vroomfondel/sipstuff/main/Gemini_Generated_Image_cpliijcpliijcpli_250x250.png)](https://github.com/vroomfondel/sipstuff)
+
 # sipstuff
 
 SIP telephony automation toolkit — place phone calls and play WAV files or TTS-generated speech via [PJSUA2](https://www.pjsip.org/). Includes speech-to-text transcription of recorded calls via [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Supports incoming call handling with auto-answer, live TTS, and real-time transcription. Available for **linux/amd64** and **linux/arm64**.

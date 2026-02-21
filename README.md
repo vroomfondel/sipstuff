@@ -1,3 +1,13 @@
+[![mypy and pytests](https://github.com/vroomfondel/sipstuff/actions/workflows/mypynpytests.yml/badge.svg)](https://github.com/vroomfondel/sipstuff/actions/workflows/mypynpytests.yml)
+[![BuildAndPushMultiarch](https://github.com/vroomfondel/sipstuff/actions/workflows/buildmultiarchandpush.yml/badge.svg)](https://github.com/vroomfondel/sipstuff/actions/workflows/buildmultiarchandpush.yml)
+[![black-lint](https://github.com/vroomfondel/sipstuff/actions/workflows/checkblack.yml/badge.svg)](https://github.com/vroomfondel/sipstuff/actions/workflows/checkblack.yml)
+![Cumulative Clones](https://img.shields.io/endpoint?logo=github&url=https://gist.githubusercontent.com/vroomfondel/92ea75186bc004c1125824335f69a821/raw/sipstuff_clone_count.json)
+[![Docker Pulls](https://img.shields.io/docker/pulls/xomoxcc/sipstuff?logo=docker)](https://hub.docker.com/r/xomoxcc/sipstuff/tags)
+[![PyPI](https://img.shields.io/pypi/v/sipstuff?logo=pypi&logoColor=white)](https://pypi.org/project/sipstuff/)
+
+[![Gemini_Generated_Image_cpliijcpliijcpli_250x250.png](https://raw.githubusercontent.com/vroomfondel/sipstuff/main/Gemini_Generated_Image_cpliijcpliijcpli_250x250.png)](https://hub.docker.com/r/xomoxcc/sipstuff/tags)
+
+
 # sipstuff
 ---
 ### ⚠️ ⚠️ ⚠️  WIP
