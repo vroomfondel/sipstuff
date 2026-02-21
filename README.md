@@ -569,6 +569,8 @@ TTS call with silence detection, recording, and transcription:
 
 <video src="https://github.com/vroomfondel/sipstuff/raw/main/Bildschirmaufnahme%202026-02-21%2020%3A31%3A34.mp4" controls width="100%"></video>
 
+![TTS call demo](https://github.com/vroomfondel/sipstuff/raw/main/Bildschirmaufnahme%202026-02-21%2020%3A31%3A34.mp4)
+
 ![Call startup — TTS generation, SIP registration, silence detection, and WAV playback](Bildschirmfoto_2026-02-15_17-40-19_blurred.png)
 
 ![Call completion — RTP stats, STT transcription, and JSON call report](Bildschirmfoto_2026-02-15_17-40-43_blurred.png)
