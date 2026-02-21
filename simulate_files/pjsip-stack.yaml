@@ -1,0 +1,142 @@
+# =============================================================
+# PJSIP Stack – Kubernetes Pod YAML für podman kube play
+# =============================================================
+# Startet einen Pod mit Asterisk SIP-Server und PJSIP TTS Client.
+#
+# Verwendung:
+#   podman kube play pjsip-stack.yaml
+#   podman kube down pjsip-stack.yaml
+#
+# Oder über stack.sh:
+#   ./stack.sh start
+#   ./stack.sh stop
+# =============================================================
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pjsip-stack
+spec:
+  hostNetwork: true
+  containers:
+    # ---- Asterisk SIP-Server ------------------------------------
+    - name: asterisk
+      image: docker.io/andrius/asterisk:latest
+      restartPolicy: OnFailure
+      volumeMounts:
+        - name: conf-pjsip
+          mountPath: /etc/asterisk/pjsip.conf
+          readOnly: true
+        - name: conf-extensions
+          mountPath: /etc/asterisk/extensions.conf
+          readOnly: true
+        - name: conf-rtp
+          mountPath: /etc/asterisk/rtp.conf
+          readOnly: true
+        - name: conf-modules
+          mountPath: /etc/asterisk/modules.conf
+          readOnly: true
+      # Probe: exec statt tcpSocket/httpGet, weil podman diese intern
+      # zu nc/curl konvertiert — beides im Asterisk-Image nicht vorhanden.
+      # startupProbe/readinessProbe werden von podman kube play ignoriert.
+      livenessProbe:
+        exec:
+          command: ["asterisk", "-rx", "core show version"]
+        initialDelaySeconds: 15
+        periodSeconds: 10
+        failureThreshold: 3
+
+    # ---- PJSIP Autoanswer + TTS + Transcription -----------------
+    - name: pjsip-autoanswer-transcribe
+      image: xomoxcc/sipstuff:latest
+      restartPolicy: Always
+      command: ["sipstuff-cli"]
+      args:
+        - callee_live-transcribe
+        - --server
+        - "127.0.0.1"
+        - --user
+        - "1001"
+        - --password
+        - "geheim1001"
+        - --local-port
+        - "5062"
+        - --piper-model
+        - de_DE-thorsten-high
+        - --tts-data-dir
+        - /piper-models
+        - --tts-text
+        - "Willkommen! Sie sind mit dem automatischen Anrufbeantworter verbunden. ... Bitte hinterlassen Sie eine Nachricht nach dem Signalton."
+        - --wav-dir
+        - /recordings
+        - --stt-model
+        - large-v3
+        - --stt-live-model
+        - base
+        - --stt-data-dir
+        - /whisper-models
+        - --stt-language
+        - de
+        - --transcribe
+      env:
+        - name: LOG_LEVEL
+          value: "3"
+      # die nachfolgenden script-mounts brauchen im Dockerfile das pip install mit "-e"
+      volumeMounts:
+        - name: tts-realtime-script
+          mountPath: /app/sipstuff/realtime/pjsip_realtime_tts.py
+          readOnly: true
+        - name: tts-transcribe-script
+          mountPath: /app/sipstuff/transcribe/pjsip_live_transcribe.py
+          readOnly: true
+        - name: autoanswer-script
+          mountPath: /app/sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py
+          readOnly: true
+        - name: piper-models
+          mountPath: /piper-models
+          readOnly: true
+        - name: whisper-models
+          mountPath: /whisper-models
+          readOnly: true
+        - name: recordings
+          mountPath: /recordings
+  volumes:
+    - name: conf-pjsip
+      hostPath:
+        path: ./pjsip.conf
+        type: File
+    - name: conf-extensions
+      hostPath:
+        path: ./extensions.conf
+        type: File
+    - name: conf-rtp
+      hostPath:
+        path: ./rtp.conf
+        type: File
+    - name: conf-modules
+      hostPath:
+        path: ./modules.conf
+        type: File
+    - name: tts-realtime-script
+      hostPath:
+        path: ../sipstuff/realtime/pjsip_realtime_tts.py
+        type: File
+    - name: tts-transcribe-script
+      hostPath:
+        path: ../sipstuff/transcribe/pjsip_live_transcribe.py
+        type: File
+    - name: autoanswer-script
+      hostPath:
+        path: ../sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py
+        type: File
+    - name: piper-models
+      hostPath:
+        path: ../sipstuff_data.local/piper-models
+        type: Directory
+    - name: whisper-models
+      hostPath:
+        path: ../sipstuff_data.local/whisper-models
+        type: Directory
+    - name: recordings
+      hostPath:
+        path: ../sipstuff_data.local/recordings_callee
+        type: Directory

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-test-exec
+spec:
+  containers:
+    - name: asterisk
+      image: docker.io/andrius/asterisk:latest
+      livenessProbe:
+        exec:
+          command: ["asterisk", "-rx", "core show version"]
+        initialDelaySeconds: 15
+        periodSeconds: 10
+        failureThreshold: 3

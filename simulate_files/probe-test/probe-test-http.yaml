@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-test-http
+spec:
+  containers:
+    - name: asterisk
+      image: docker.io/andrius/asterisk:latest
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 8088
+        initialDelaySeconds: 15
+        periodSeconds: 10
+        failureThreshold: 3

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-test-tcp
+spec:
+  containers:
+    - name: asterisk
+      image: docker.io/andrius/asterisk:latest
+      ports:
+        - containerPort: 5060
+      livenessProbe:
+        tcpSocket:
+          port: 5060
+        initialDelaySeconds: 15
+        periodSeconds: 10
+        failureThreshold: 3

@@ -1,0 +1,60 @@
+# =============================================================
+# PJSIP Stack – Docker Compose / Podman Compose
+# =============================================================
+# Alternative zu podman kube play.
+#
+# Verwendung:
+#   podman-compose up -d
+#   podman-compose down
+# =============================================================
+
+services:
+  asterisk:
+    image: docker.io/andrius/asterisk:latest
+    container_name: pjsip-stack-asterisk
+    network_mode: host
+    restart: on-failure
+    volumes:
+      - ./pjsip.conf:/etc/asterisk/pjsip.conf:ro
+      - ./extensions.conf:/etc/asterisk/extensions.conf:ro
+      - ./rtp.conf:/etc/asterisk/rtp.conf:ro
+      - ./modules.conf:/etc/asterisk/modules.conf:ro
+    healthcheck:
+      test: ["CMD", "asterisk", "-rx", "core show version"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  pjsip-autoanswer-transcribe:
+    image: xomoxcc/sipstuff:latest
+    container_name: pjsip-stack-autoanswer-transcribe
+    network_mode: host
+    restart: on-failure
+    depends_on:
+      asterisk:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: "3"
+    volumes:
+      - ../sipstuff/realtime/pjsip_realtime_tts.py:/app/sipstuff/realtime/pjsip_realtime_tts.py:ro
+      - ../sipstuff/transcribe/pjsip_live_transcribe.py:/app/sipstuff/transcribe/pjsip_live_transcribe.py:ro
+      - ../sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py:/app/sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py:ro
+      - ../sipstuff_data.local/piper-models:/piper-models:ro
+      - ../sipstuff_data.local/whisper-models:/whisper-models:ro
+      - ../sipstuff_data.local/recordings_callee:/recordings
+    command: >-
+      sipstuff-cli callee_live-transcribe
+        --server 127.0.0.1
+        --user 1001
+        --password geheim1001
+        --local-port 5062
+        --piper-model de_DE-thorsten-high
+        --tts-data-dir /piper-models
+        --tts-text "Willkommen! Sie sind mit dem automatischen Anrufbeantworter verbunden. ... Bitte hinterlassen Sie eine Nachricht nach dem Signalton."
+        --wav-dir /recordings
+        --stt-model large-v3
+        --stt-live-model base
+        --stt-data-dir /whisper-models
+        --stt-language de
+        --transcribe

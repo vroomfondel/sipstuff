@@ -1,0 +1,128 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+packages = ["sipstuff"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[project]
+name = "sipstuff"
+dynamic = ["version"]
+authors = [
+  { name="Henning Thieß", email="ht@xomox.cc" },
+]
+description = "SIP telephony automation toolkit: place calls via PJSIP, play WAV/TTS audio, record and transcribe responses"
+readme = "README.md"
+requires-python = ">=3.14"
+license-files = ["LICENSE.md"]
+
+keywords = ["sip", "voip", "pjsip", "pjsua2", "telephony", "tts", "stt", "piper", "whisper"]
+
+# https://pypi.org/classifiers/
+classifiers = [
+    "Development Status :: 4 - Beta",
+
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+
+    "Topic :: Communications :: Telephony",
+    "Topic :: Communications :: Internet Phone",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Operating System :: POSIX :: Linux",
+]
+
+# NOTE: pjsua2 (PJSIP Python bindings) is required for SIP functionality but
+# cannot be installed via pip. It must be compiled from PJSIP C source — see
+# dist_scripts/install_pjsip.sh or the Dockerfile (pjsip-builder stage).
+dependencies = [
+    'PyYAML>=6.0',
+    'ruamel-yaml',
+    'loguru>=0.7.0',
+    'pydantic>=2.10.0',
+    'tabulate>=0.9.0',
+    'soundfile',
+    'sounddevice',
+    'numpy',
+    'faster-whisper',
+]
+
+[project.optional-dependencies]
+cuda = [
+    'nvidia-cublas-cu12',
+    'nvidia-cudnn-cu12',
+]
+openvino = [
+    'optimum-intel[openvino]',
+]
+training = [
+    'pynput',
+    'PySide6',
+]
+
+[project.urls]
+Homepage = "https://github.com/vroomfondel/sipstuff"
+Repository = "https://github.com/vroomfondel/sipstuff"
+Issues = "https://github.com/vroomfondel/sipstuff/issues"
+
+[tool.hatch.version]
+path = "sipstuff/__init__.py"
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.black]
+line-length = 120
+target-version = ["py313"]
+
+[tool.pytest.ini_options]
+python_files = "tests/*.py"
+
+[tool.mypy]
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+exclude = '''(?x)(
+    \.venv
+    | venv
+    | \.pyi$
+    )'''
+
+[[tool.mypy.overrides]]
+module = ["cv2", "numpy", "pytesseract", "soundfile", "sounddevice"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["piper", "pynput"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pjsua2"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "faster_whisper"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["optimum.*", "transformers"]
+ignore_missing_imports = true
+
+
+[project.scripts]
+sipstuff-cli = "sipstuff.cli:main"

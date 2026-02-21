@@ -1,0 +1,22 @@
+PyYAML>=6.0
+loguru>=0.7.0
+pydantic>=2.10.0
+tabulate>=0.9.0
+ruamel-yaml
+soundfile
+numpy
+faster-whisper
+sounddevice
+
+# pjsua2 — must be built from PJSIP C source, see dist_scripts/install_pjsip.sh or copy_pjsua2_from_docker.sh
+# pjsua2
+
+# piper-tts — requires Python ≤3.13 (no 3.14 wheels), runs in separate venv via subprocess
+# piper-tts
+
+# Optional: CUDA runtime libs for faster-whisper GPU inference — install with: pip install sipstuff[cuda]
+# nvidia-cublas-cu12
+# nvidia-cudnn-cu12
+
+# Optional: OpenVINO STT backend (Intel GPU / CPU) — install with: pip install sipstuff[openvino]
+# optimum-intel[openvino]
