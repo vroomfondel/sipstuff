@@ -567,9 +567,7 @@ Notes:
 
 TTS call with silence detection, recording, and transcription:
 
-<video src="https://github.com/vroomfondel/sipstuff/raw/main/Bildschirmaufnahme%202026-02-21%2020-31-34_scaled.mp4" controls></video>
-
-![TTS call demo](https://github.com/vroomfondel/sipstuff/raw/main/Bildschirmaufnahme%202026-02-21%2020-31-34_scaled.mp4)
+<video src="https://github.com/user-attachments/assets/6f3177b4-77ac-494b-ba07-f277eacd3f9b" controls></video>
 
 ![Call startup — TTS generation, SIP registration, silence detection, and WAV playback](Bildschirmfoto_2026-02-15_17-40-19_blurred.png)
 
