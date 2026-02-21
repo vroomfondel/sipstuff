@@ -1,47 +1,36 @@
-[![mypy and pytests](https://github.com/vroomfondel/sipstuff-k8s-operator/actions/workflows/mypynpytests.yml/badge.svg)](https://github.com/vroomfondel/sipstuff-k8s-operator/actions/workflows/mypynpytests.yml)
-[![BuildAndPushMultiarch](https://github.com/vroomfondel/sipstuff-k8s-operator/actions/workflows/buildmultiarchandpush.yml/badge.svg)](https://github.com/vroomfondel/sipstuff-k8s-operator/actions/workflows/buildmultiarchandpush.yml)
-[![black-lint](https://github.com/vroomfondel/sipstuff-k8s-operator/actions/workflows/checkblack.yml/badge.svg)](https://github.com/vroomfondel/sipstuff-k8s-operator/actions/workflows/checkblack.yml)
-![Cumulative Clones](https://img.shields.io/endpoint?logo=github&url=https://gist.githubusercontent.com/vroomfondel/69048d146ee747668673b2a8f8ebc81e/raw/sipstuff-k8s-operator_clone_count.json)
-[![Docker Pulls](https://img.shields.io/docker/pulls/xomoxcc/sipstuff-k8s-operator?logo=docker)](https://hub.docker.com/r/xomoxcc/sipstuff-k8s-operator/tags)
-[![PyPI](https://img.shields.io/pypi/v/sipstuff-k8s-operator?logo=pypi&logoColor=white)](https://pypi.org/project/sipstuff-k8s-operator/)
+[![mypy and pytests](https://github.com/vroomfondel/sipstuff/actions/workflows/mypynpytests.yml/badge.svg)](https://github.com/vroomfondel/sipstuff/actions/workflows/mypynpytests.yml)
+[![BuildAndPushMultiarch](https://github.com/vroomfondel/sipstuff/actions/workflows/buildmultiarchandpush.yml/badge.svg)](https://github.com/vroomfondel/sipstuff/actions/workflows/buildmultiarchandpush.yml)
+[![black-lint](https://github.com/vroomfondel/sipstuff/actions/workflows/checkblack.yml/badge.svg)](https://github.com/vroomfondel/sipstuff/actions/workflows/checkblack.yml)
+[![Docker Pulls](https://img.shields.io/docker/pulls/xomoxcc/sipstuff?logo=docker)](https://hub.docker.com/r/xomoxcc/sipstuff/tags)
+[![PyPI](https://img.shields.io/pypi/v/sipstuff?logo=pypi&logoColor=white)](https://pypi.org/project/sipstuff/)
 
-[![Gemini_Generated_Image_23m8jo23m8jo23m8_250x250.png](https://raw.githubusercontent.com/vroomfondel/sipstuff-k8s-operator/main/Gemini_Generated_Image_23m8jo23m8jo23m8_250x250.png)](https://github.com/vroomfondel/sipstuff-k8s-operator)
+# sipstuff
 
-# sipstuff-k8s-operator
-
-A Kubernetes operator that exposes a FastAPI HTTP API for creating SIP call Jobs. It accepts call requests via `POST /call`, builds Kubernetes Jobs that run [`sipstuff.cli call`](https://hub.docker.com/r/xomoxcc/somestuff/tags), and tracks job status. Available for **linux/amd64** and **linux/arm64**. [Source on GitHub](https://github.com/vroomfondel/sipstuff-k8s-operator).
+SIP telephony automation toolkit — place phone calls and play WAV files or TTS-generated speech via [PJSUA2](https://www.pjsip.org/). Includes speech-to-text transcription of recorded calls via [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Supports incoming call handling with auto-answer, live TTS, and real-time transcription. Available for **linux/amd64** and **linux/arm64**.
 
 Quick links:
-- Source: [github.com/vroomfondel/sipstuff-k8s-operator](https://github.com/vroomfondel/sipstuff-k8s-operator)
-- PyPI: [pypi.org/project/sipstuff-k8s-operator](https://pypi.org/project/sipstuff-k8s-operator/)
-- CI: mypy + pytest, black lint, and a multi‑arch Docker build/push workflow (see badges above)
+- Source: [github.com/vroomfondel/sipstuff](https://github.com/vroomfondel/sipstuff)
+- PyPI: [pypi.org/project/sipstuff](https://pypi.org/project/sipstuff/)
+- CI: mypy + pytest, black lint, and a multi-arch Docker build/push workflow (see badges above)
 
 
 ## Why this is useful
 
-- **HTTP API for SIP calls** — trigger phone calls from any system that can make HTTP requests (monitoring, alerting, CI/CD pipelines, home automation).
-- **Kubernetes‑native** — each call runs as an isolated K8s Job with proper RBAC, TTL cleanup, and status tracking.
-- **Per‑request SIP overrides** — override SIP server, credentials, transport, SRTP, and NAT traversal settings per call, or fall back to a shared K8s Secret.
+- **Headless SIP calling** — place automated phone calls from scripts, monitoring systems, alerting pipelines, or CI/CD without a sound card or GUI.
+- **TTS + STT in one image** — synthesize speech via [piper TTS](https://github.com/rhasspy/piper) and transcribe recordings via [faster-whisper](https://github.com/SYSTRAN/faster-whisper), all in a single container.
+- **Incoming call handling** — auto-answer, WAV playback, real-time TTS, and live transcription for callee scenarios.
 - **NAT traversal** — STUN, ICE, TURN relay, UDP keepalive, and static public address support for complex network environments.
-- **Multi‑arch** — runs on amd64 and arm64 (laptops, servers, SBCs).
+- **Encryption** — UDP, TCP, and TLS transports with optional SRTP media encryption.
+- **Multi-arch** — runs on amd64 and arm64 (laptops, servers, SBCs).
 
 
 ## Screenshots
 
-![Operator running a SIP call with transcription](https://raw.githubusercontent.com/vroomfondel/sipstuff-k8s-operator/main/Bildschirmfoto_2026-02-15_15-48-00_blurred.png)
+![Call startup — TTS generation, SIP registration, silence detection, and WAV playback](https://raw.githubusercontent.com/vroomfondel/sipstuff/main/Bildschirmfoto_2026-02-15_17-40-19_blurred.png)
 
-![Operator startup and call execution](https://raw.githubusercontent.com/vroomfondel/sipstuff-k8s-operator/main/Bildschirmfoto_2026-02-15_15-48-20_blurred.png)
+![Call completion — RTP stats, STT transcription, and JSON call report](https://raw.githubusercontent.com/vroomfondel/sipstuff/main/Bildschirmfoto_2026-02-15_17-40-43_blurred.png)
 
-![Operator startup with configuration overview](https://raw.githubusercontent.com/vroomfondel/sipstuff-k8s-operator/main/Bildschirmfoto_2026-02-16_19-26-07_blurred.png)
-
-## API Endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/call` | Create a K8s Job that executes a SIP call |
-| `GET` | `/jobs` | List all SIP call jobs |
-| `GET` | `/jobs/{name}` | Get status of a specific job |
-| `GET` | `/health` | Liveness / readiness probe |
+![JSON call report detail and follow-up call](https://raw.githubusercontent.com/vroomfondel/sipstuff/main/Bildschirmfoto_2026-02-15_17-41-02_blurred.png)
 
 
 ## Quick start
@@ -50,185 +39,208 @@ Quick links:
 # Pull the image
 docker pull xomoxcc/sipstuff:latest
 
-# Run locally (connects to your current kubeconfig context)
-docker run --rm -p 8080:8080 \
-  -v ~/.kube/config:/root/.kube/config:ro \
-  xomoxcc/sipstuff:latest
+# Place a TTS call (no WAV file needed)
+docker run --network=host --rm \
+    xomoxcc/sipstuff:latest \
+    python3 -m sipstuff.cli call \
+    --server pbx.example.com --user 1000 --password changeme \
+    --dest +491234567890 \
+    --text "Achtung! Wasserstand kritisch!" \
+    --tts-sample-rate 8000 -v
 
-# Create a call
-curl -X POST http://localhost:8080/call \
-  -H "Content-Type: application/json" \
-  -d '{"dest": "+4912345678", "text": "Hello from sipstuff"}'
-
-# List jobs
-curl http://localhost:8080/jobs
-
-# Check health
-curl http://localhost:8080/health
+# Place a call with a WAV file
+docker run --network=host --rm \
+    -v /path/to/alert.wav:/app/alert.wav:ro \
+    xomoxcc/sipstuff:latest \
+    python3 -m sipstuff.cli call \
+    --server pbx.example.com --user 1000 --password changeme \
+    --dest +491234567890 --wav /app/alert.wav -v
 ```
+
+
+## CLI Subcommands
+
+The image provides six subcommands via `python3 -m sipstuff.cli`:
+
+| Subcommand | Description |
+|---|---|
+| `call` | Place an outgoing SIP call with WAV playback, TTS, recording, and transcription |
+| `tts` | Generate a WAV file from text using piper TTS (no SIP server needed) |
+| `stt` | Transcribe a WAV file using faster-whisper (no SIP server needed) |
+| `callee_autoanswer` | Auto-answer incoming calls with optional WAV/TTS playback |
+| `callee_realtime-tts` | Answer incoming calls and speak text in real-time via Piper TTS |
+| `callee_live-transcribe` | Answer incoming calls and transcribe remote audio in real-time |
+
+
+## Docker / Podman Examples
+
+### TTS call with recording and transcription
+
+```bash
+docker run --network=host --rm \
+    -v /tmp/recordings:/data/recordings \
+    xomoxcc/sipstuff:latest \
+    python3 -m sipstuff.cli call \
+    --server pbx.example.com --user 1000 --password changeme \
+    --dest +491234567890 \
+    --text "Achtung! Wasserstand kritisch!" \
+    --tts-sample-rate 8000 \
+    --record /data/recordings/rx.wav --transcribe \
+    --wait-for-silence 1.0 -v
+```
+
+### TLS + SRTP encrypted call with playback options
+
+```bash
+docker run --network=host --rm \
+    -v /path/to/alert.wav:/app/alert.wav:ro \
+    xomoxcc/sipstuff:latest \
+    python3 -m sipstuff.cli call \
+    --server pbx.example.com --port 5161 \
+    --transport tls --srtp mandatory \
+    --user 1000 --password changeme \
+    --dest +491234567890 --wav /app/alert.wav \
+    --pre-delay 3.0 --post-delay 1.0 --repeat 3 -v
+```
+
+### TTS with persistent voice models
+
+Avoid re-downloading piper voice models on every `--rm` run:
+
+```bash
+docker run --network=host --rm \
+    -v ~/.local/share/piper-voices:/data/piper \
+    xomoxcc/sipstuff:latest \
+    python3 -m sipstuff.cli call \
+    --server pbx.example.com --user 1000 --password changeme \
+    --dest +491234567890 \
+    --text "Server nicht erreichbar!" \
+    --tts-data-dir /data/piper --tts-sample-rate 8000 -v
+```
+
+### Connection via environment variables
+
+```bash
+docker run --network=host --rm \
+    -e SIP_SERVER=pbx.example.com \
+    -e SIP_PORT=5161 \
+    -e SIP_USER=1000 \
+    -e SIP_PASSWORD=changeme \
+    -e SIP_TRANSPORT=tls \
+    -e SIP_SRTP=mandatory \
+    xomoxcc/sipstuff:latest \
+    python3 -m sipstuff.cli call \
+    --dest +491234567890 \
+    --text "Server nicht erreichbar!" \
+    --tts-sample-rate 8000 -v
+```
+
+### Callee auto-answer
+
+```bash
+docker run --network=host --rm \
+    -e SIP_SERVER=pbx.example.com \
+    -e SIP_USER=1001 \
+    -e SIP_PASSWORD=changeme \
+    xomoxcc/sipstuff:latest \
+    python3 -m sipstuff.cli callee_autoanswer \
+    --mode tts --tts-text "Hallo, bitte hinterlassen Sie eine Nachricht." -v
+```
+
+### NAT traversal — STUN + ICE
+
+```bash
+docker run --network=host --rm \
+    xomoxcc/sipstuff:latest \
+    python3 -m sipstuff.cli call \
+    --server pbx.example.com --user 1000 --password changeme \
+    --stun-servers stun.l.google.com:19302,stun1.l.google.com:19302 \
+    --ice \
+    --dest +491234567890 \
+    --text "Test call with NAT traversal" -v
+```
+
+### Rootless Podman
+
+```bash
+podman run --network=host -it --rm --userns=keep-id:uid=1200,gid=1201 \
+    xomoxcc/sipstuff:latest \
+    python3 -m sipstuff.cli call \
+    --server pbx.example.com --user 1000 --password changeme \
+    --dest +491234567890 --text "Hello from Podman" -v
+```
+
+Notes:
+- `--network=host` is needed for SIP/RTP media traffic.
+- `--userns=keep-id:uid=1200,gid=1201` maps the container's `pythonuser` to your host user (rootless Podman).
+- The container runs as non-root `pythonuser` (UID 1200).
+- Use `--tts-sample-rate 8000` to resample TTS output for narrowband SIP.
 
 
 ## Configuration
 
-All settings are read from environment variables. Every variable is optional with sensible defaults.
+All SIP settings can be passed via CLI flags, environment variables (`SIP_*` prefix), or a YAML config file. Priority (highest first): CLI flags > env vars > YAML file.
 
-| Variable | Default | Description |
-|---|---|---|
-| `JOB_NAMESPACE` | Downward API namespace or `"sipstuff"` | K8s namespace for created jobs |
-| `JOB_IMAGE` | `"xomoxcc/somestuff:latest"` | Container image for SIP call jobs |
-| `SIP_SECRET_NAME` | `"sip-credentials"` | K8s Secret name for default SIP credentials |
-| `JOB_TTL_SECONDS` | `3600` | TTL in seconds after job completion before cleanup |
-| `JOB_BACKOFF_LIMIT` | `0` | Number of retries before marking a job as failed |
-| `JOB_HOST_NETWORK` | `"true"` | Use host networking for SIP/RTP |
-| `PORT` | `8080` | HTTP listen port |
-| `PIPER_DATA_DIR` | `null` | Host path for Piper TTS model cache; mounted at `/data/piper` |
-| `WHISPER_DATA_DIR` | `null` | Host path for Whisper STT model cache; mounted at `/data/whisper` |
-| `RECORDING_DIR` | `null` | Host path for call recordings; mounted at `/data/recordings` |
-| `RUN_AS_USER` | `null` | UID to run the job container as |
-| `RUN_AS_GROUP` | `null` | GID to run the job container as |
-| `FS_GROUP` | `null` | fsGroup for the job pod security context |
-| `NODE_SELECTOR` | `null` | Default node selector for job pods (`key=value,key2=value2`); can be overridden or cleared per request |
+Key environment variables:
 
-**Note on hostPath volumes and permissions:** `fsGroup` only takes effect on volume types that support ownership management (e.g. `emptyDir`, PVCs). For `hostPath` volumes the host directory permissions are used as-is. When `RUN_AS_USER` is set and volume mounts are configured, the operator automatically adds a `fix-permissions` initContainer (runs as root with `busybox:latest`) that executes `chown -R <uid>:<gid>` on all mounted directories before the main container starts. This ensures the SIP call container can write to the hostPath volumes regardless of the host-side permissions.
+| Variable | Description |
+|---|---|
+| `SIP_SERVER` | PBX hostname or IP |
+| `SIP_PORT` | SIP port (default: 5060) |
+| `SIP_USER` | SIP extension / username |
+| `SIP_PASSWORD` | SIP password |
+| `SIP_TRANSPORT` | `udp`, `tcp`, or `tls` |
+| `SIP_SRTP` | `disabled`, `optional`, or `mandatory` |
+| `SIP_STUN_SERVERS` | Comma-separated STUN servers |
+| `SIP_ICE_ENABLED` | Enable ICE for NAT traversal |
+| `SIP_TURN_SERVER` | TURN relay server (host:port) |
+| `SIP_PUBLIC_ADDRESS` | Public IP for SDP/Contact headers |
+| `SIP_TIMEOUT` | Call timeout in seconds |
 
-
-## Call Request Body
-
-`POST /call` accepts a JSON body with the following fields. Exactly one of `text` or `wav` must be provided.
-
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `dest` | `string` | *(required)* | Destination phone number or SIP URI |
-| `text` | `string` | `null` | Text to speak via TTS (mutually exclusive with `wav`) |
-| `wav` | `string` | `null` | Path to a WAV file to play (mutually exclusive with `text`) |
-| `sip_server` | `string` | `null` | SIP server override |
-| `sip_port` | `integer` | `null` | SIP port override (1-65535) |
-| `sip_user` | `string` | `null` | SIP username override |
-| `sip_password` | `string` | `null` | SIP password override |
-| `sip_transport` | `string` | `null` | Transport protocol: `"udp"`, `"tcp"`, or `"tls"` |
-| `sip_srtp` | `string` | `null` | SRTP mode: `"disabled"`, `"optional"`, or `"mandatory"` |
-| `sip_tls_verify` | `boolean` | `null` | TLS server certificate verification |
-| `stun_servers` | `string` | `null` | Comma-separated STUN servers |
-| `ice_enabled` | `boolean` | `null` | Enable ICE for NAT traversal |
-| `turn_server` | `string` | `null` | TURN relay server (host:port) |
-| `turn_username` | `string` | `null` | TURN auth username |
-| `turn_password` | `string` | `null` | TURN auth password |
-| `turn_transport` | `string` | `null` | TURN transport: `"udp"`, `"tcp"`, or `"tls"` |
-| `keepalive_sec` | `integer` | `null` | UDP keepalive interval in seconds (0-600) |
-| `public_address` | `string` | `null` | Public IP address for SDP/Contact headers |
-| `timeout` | `integer` | `60` | Call timeout in seconds (1-600) |
-| `pre_delay` | `float` | `0.0` | Delay before call in seconds (0-30) |
-| `inter_delay` | `float` | `0.0` | Delay between WAV repeats in seconds (0-30) |
-| `post_delay` | `float` | `0.0` | Delay after call in seconds (0-30) |
-| `wait_for_silence` | `float` | `null` | Wait for N seconds of remote silence before playback (0-30) |
-| `repeat` | `integer` | `1` | Number of call repetitions (1-100) |
-| `tts_model` | `string` | `null` | TTS model name |
-| `tts_sample_rate` | `integer` | `null` | TTS sample rate in Hz (0-48000) |
-| `tts_data_dir` | `string` | `null` | TTS data directory |
-| `stt_model` | `string` | `null` | Whisper model size for STT transcription (e.g. `"tiny"`, `"base"`, `"small"`, `"medium"`, `"large-v3"`) |
-| `stt_language` | `string` | `null` | Language code for STT transcription (e.g. `"de"`) |
-| `stt_data_dir` | `string` | `null` | Directory for Whisper STT models |
-| `record` | `string` | `null` | Record remote party audio to this WAV file path (should be below `/data/recordings/` when `RECORDING_DIR` is configured) |
-| `transcribe` | `boolean` | `false` | Transcribe recorded audio via STT and write a JSON call report (requires `record`) |
-| `verbose` | `boolean` | `false` | Enable verbose logging in the call job |
-| `node_selector` | `object` | `null` | K8s node selector for the job pod (e.g. `{"mayplacecalls": "true"}`). Overrides the operator default from `NODE_SELECTOR`. Set to `{}` to explicitly clear the default. |
+See the [full README](https://github.com/vroomfondel/sipstuff#environment-variables) for the complete list.
 
 
-## Kubernetes Deployment
+## Dockerfile (Three-Stage Build)
 
-Manifests are provided in the `k8s/` directory of the [source repository](https://github.com/vroomfondel/sipstuff-k8s-operator/tree/main/k8s):
+1. **`pjsip-builder`** (`python:3.14-slim-trixie`): builds PJSIP from source, copies `.so` libs + Python SWIG bindings
+2. **`piper-builder`** (`python:3.13-slim-trixie`): creates `/opt/piper-venv` with piper-tts, bundles Python 3.13 runtime into `/opt/python313/`
+3. **Main image** (`python:3.14-slim-trixie`): copies both artifacts, installs sipstuff. Runs as non-root `pythonuser` (UID 1200). Locale `de_DE.UTF-8`, tz `Europe/Berlin`. Entrypoint: `tini`.
 
-```bash
-# Create namespace
-kubectl apply -f k8s/namespace.yaml
-
-# Create RBAC (ServiceAccount, Role, RoleBinding)
-kubectl apply -f k8s/rbac.yaml
-
-# Create the SIP credentials secret (copy and edit the example first)
-cp k8s/secret.yaml.example k8s/secret.yaml
-# edit k8s/secret.yaml with your SIP credentials
-kubectl apply -f k8s/secret.yaml
-
-# Deploy the operator
-kubectl apply -f k8s/deployment.yaml
-
-# Expose via ClusterIP service (80 -> 8080)
-kubectl apply -f k8s/service.yaml
-```
-
-The operator Deployment uses liveness and readiness probes against `/health`, runs as a single replica on port 8080, and uses a dedicated `sipstuff-operator` ServiceAccount with RBAC permissions for batch/jobs and pods.
-
-
-## SIP Credentials
-
-SIP connection parameters can be provided per‑request in the call body (`sip_server`, `sip_port`, `sip_user`, `sip_password`, `sip_transport`, `sip_srtp`, `sip_tls_verify`). When a field is not provided, the operator falls back to the K8s Secret specified by `SIP_SECRET_NAME` (default: `sip-credentials`).
-
-The secret should contain these keys:
-
-```yaml
-stringData:
-  SIP_SERVER: "sip.example.com"
-  SIP_PORT: "5060"
-  SIP_USER: "sipuser"
-  SIP_PASSWORD: "changeme"
-  SIP_TRANSPORT: "udp"
-  SIP_SRTP: "disabled"
-  # SIP_TLS_VERIFY_SERVER: "false"
-```
-
-See [`k8s/secret.yaml.example`](https://github.com/vroomfondel/sipstuff-k8s-operator/blob/main/k8s/secret.yaml.example) for a complete example.
-
-### NAT Traversal
-
-NAT traversal settings (STUN, ICE, TURN, keepalive, public address) can be provided per‑request or configured globally via the same K8s Secret. Add any of these optional keys to the `sip-credentials` Secret:
-
-```yaml
-stringData:
-  # SIP_STUN_SERVERS: "stun.l.google.com:19302"
-  # SIP_ICE_ENABLED: "false"
-  # SIP_TURN_SERVER: "turn.example.com:3478"
-  # SIP_TURN_USERNAME: ""
-  # SIP_TURN_PASSWORD: ""
-  # SIP_TURN_TRANSPORT: "udp"
-  # SIP_KEEPALIVE_SEC: "0"
-  # SIP_PUBLIC_ADDRESS: ""
-```
-
-When `turn_server` is provided in a request, `SIP_TURN_ENABLED=true` is automatically set on the job.
-
-
-## Docker: build and image details
-
-The image is based on `python:3.14-slim`, installs Python deps via `requirements.txt`, copies the `sipstuff_k8s_operator` package, and runs `python3 -m sipstuff_k8s_operator` as its default command.
+Optional build args:
+- `INSTALL_CUDA=true`: installs NVIDIA CUDA runtime libs for faster-whisper GPU inference
+- `INSTALL_OPENVINO=true`: installs `optimum-intel[openvino]` for OpenVINO STT backend (Intel GPU/CPU)
 
 ### Local build
+
 ```bash
-# Build the image
-make build
-# or
+# Standard build
 docker build -t xomoxcc/sipstuff:latest .
 
-# Run locally
-docker run --rm -p 8080:8080 xomoxcc/sipstuff:latest
+# With CUDA support
+docker build --build-arg INSTALL_CUDA=true -t xomoxcc/sipstuff:latest .
+
+# With OpenVINO support
+docker build --build-arg INSTALL_OPENVINO=true -t xomoxcc/sipstuff:latest .
 ```
 
-### Multi‑arch build and push
-The CI workflow (`.github/workflows/buildmultiarchandpush.yml`) builds and pushes multi‑arch images (amd64 + arm64) to Docker Hub after a successful mypy/pytest run. Tags: `xomoxcc/sipstuff-k8s-operator:latest` and `xomoxcc/sipstuff-k8s-operator:python-3.14-slim-trixie`.
+### Multi-arch build and push
+
+The CI workflow (`.github/workflows/buildmultiarchandpush.yml`) builds and pushes multi-arch images (amd64 + arm64) to Docker Hub after a successful mypy/pytest run.
 
 ### GitHub Actions
-- `mypynpytests.yml` — mypy + pytest
-- `buildmultiarchandpush.yml` — multi‑arch Docker build/push (triggers after successful tests)
+
 - `checkblack.yml` — black code style check
-- `update-clone-badge.yml` — clone count badge update
+- `mypynpytests.yml` — mypy + pytest
+- `buildmultiarchandpush.yml` — multi-arch Docker build/push (triggers after successful tests)
 
 
 ## License
 
-This project is licensed under the LGPL‑3.0 — see [LICENSE.md](https://github.com/vroomfondel/sipstuff-k8s-operator/blob/main/LICENSE.md). Some files/parts may use other licenses: [MIT](https://github.com/vroomfondel/sipstuff-k8s-operator/blob/main/LICENSEMIT.md) | [GPL](https://github.com/vroomfondel/sipstuff-k8s-operator/blob/main/LICENSEGPL.md) | [LGPL](https://github.com/vroomfondel/sipstuff-k8s-operator/blob/main/LICENSELGPL.md). Always check per‑file headers/comments.
+This project is licensed under the LGPL-3.0 — see [LICENSE.md](https://github.com/vroomfondel/sipstuff/blob/main/LICENSE.md). Some files/parts may use other licenses: [MIT](https://github.com/vroomfondel/sipstuff/blob/main/LICENSEMIT.md) | [GPL](https://github.com/vroomfondel/sipstuff/blob/main/LICENSEGPL.md) | [LGPL](https://github.com/vroomfondel/sipstuff/blob/main/LICENSELGPL.md). Always check per-file headers/comments.
 
 
 ## Authors
+
 - Repo owner (primary author)
 - Additional attributions are noted inline in code comments
 

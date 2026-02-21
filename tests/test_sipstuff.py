@@ -1,12 +1,42 @@
-"""Tests for sipstuff: config validation, WAV validation, pjsua2 account config mapping."""
+"""Tests for sipstuff: config validation, WAV validation, pjsua2 account config mapping.
 
+Config tests use ``importlib`` to load ``sipconfig.py`` directly, bypassing
+``sipstuff/__init__.py`` which unconditionally imports pjsua2.  This lets
+config validation tests run in CI without the pjsua2 C extension installed.
+"""
+
+import importlib.util
 import struct
+import sys
 import wave
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
-from sipstuff.sipconfig import CallConfig, NatConfig, SipCallerConfig, SipConfig
+# ─── Load sipconfig directly (bypass sipstuff/__init__.py → pjsua2) ──────────
+
+_SIPCONFIG_PATH = Path(__file__).resolve().parent.parent / "sipstuff" / "sipconfig.py"
+
+
+def _load_sipconfig() -> ModuleType:
+    """Load sipstuff.sipconfig without triggering sipstuff/__init__.py."""
+    mod_name = "sipstuff.sipconfig"
+    if mod_name in sys.modules:
+        return sys.modules[mod_name]
+    spec = importlib.util.spec_from_file_location(mod_name, _SIPCONFIG_PATH)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[mod_name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_sipconfig = _load_sipconfig()
+SipConfig = _sipconfig.SipConfig
+CallConfig = _sipconfig.CallConfig
+NatConfig = _sipconfig.NatConfig
+SipCallerConfig = _sipconfig.SipCallerConfig
 
 # ─── Config model tests ──────────────────────────────────────────────────────
 
@@ -243,7 +273,8 @@ def _make_wav(path: Path, channels: int = 1, sampwidth: int = 2, framerate: int 
 
 
 # WavInfo lives in sipstuff.audio, and SipCallError in sipstuff.sip_types.
-# Both modules import pjsua2 at module level, so skip if unavailable.
+# Both modules import pjsua2 at module level, so skip everything below
+# when pjsua2 is not installed.
 pj = pytest.importorskip("pjsua2", reason="pjsua2 not installed (requires PJSIP C build)")
 
 from sipstuff.audio import WavInfo  # noqa: E402
@@ -328,7 +359,6 @@ class TestBuildPjAccountConfig:
     def test_no_public_address_by_default(self) -> None:
         cfg = SipCallerConfig(sip=SipConfig(server="pbx", user="u", password="p"))
         acfg = SipAccount.build_pj_account_config(cfg, transport_id=0, local_ip="127.0.0.1")
-        # Default pj.AccountConfig has empty publicAddress
         assert acfg.mediaConfig.transportConfig.publicAddress == ""
 
     def test_ice_enabled(self) -> None:
