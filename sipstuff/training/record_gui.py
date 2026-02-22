@@ -45,6 +45,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QGroupBox,
@@ -475,6 +476,7 @@ class RecorderWindow(QMainWindow):
         channels: int = 1,
         input_device: int | None = None,
         output_device: int | None = None,
+        auto_play: bool = False,
     ) -> None:
         """Initialise the recorder window and build the UI.
 
@@ -485,6 +487,7 @@ class RecorderWindow(QMainWindow):
             channels: Number of audio channels to record (1 = mono).
             input_device: sounddevice input device index, or None for the system default.
             output_device: sounddevice output device index, or None for the system default.
+            auto_play: If True, automatically play back a recording after saving.
         """
         super().__init__()
 
@@ -500,6 +503,7 @@ class RecorderWindow(QMainWindow):
         self.current_audio: np.ndarray | None = None
         self.is_recording = False
         self.is_playing = False
+        self.auto_play = auto_play
 
         self.record_thread: RecordThread | None = None
         self.play_thread: PlayThread | None = None
@@ -618,6 +622,7 @@ class RecorderWindow(QMainWindow):
             self.table.setItem(i, 3, status_item)
 
         self.table.currentCellChanged.connect(self._on_row_changed)
+        self.table.cellDoubleClicked.connect(self._on_cell_double_clicked)
         table_layout.addWidget(self.table)
         splitter.addWidget(table_widget)
 
@@ -749,6 +754,11 @@ class RecorderWindow(QMainWindow):
         self._populate_output_devices()
         self.output_device_combo.currentIndexChanged.connect(self._on_output_device_changed)
         device_layout.addWidget(self.output_device_combo, stretch=1)
+
+        self.auto_play_checkbox = QCheckBox("Automatisch abspielen")
+        self.auto_play_checkbox.setChecked(self.auto_play)
+        self.auto_play_checkbox.toggled.connect(lambda checked: setattr(self, "auto_play", checked))
+        device_layout.addWidget(self.auto_play_checkbox)
 
         main_layout.addLayout(device_layout)
 
@@ -972,6 +982,47 @@ class RecorderWindow(QMainWindow):
             status_item.setText("✓" if recorded else "—")
             status_item.setForeground(QColor(80, 200, 80) if recorded else QColor(120, 120, 120))
 
+    # ── Aufnahme zurücksetzen ─────────────────────────────────────────
+
+    def _on_cell_double_clicked(self, row: int, col: int) -> None:
+        """Slot: double-click on the status column resets a recorded entry.
+
+        Deletes the WAV file and marks the entry as unrecorded after user confirmation.
+
+        Args:
+            row: Table row that was double-clicked.
+            col: Table column that was double-clicked.
+        """
+        if col != 3:
+            return
+        status_item = self.table.item(row, 3)
+        if status_item is None or status_item.text() != "✓":
+            return
+
+        entry = self.entries[row]
+        wav_path = os.path.join(self.output_dir, entry["filename"] + ".wav")
+
+        reply = QMessageBox.question(
+            self,
+            "Aufnahme zurücksetzen",
+            f"Aufnahme für '{entry['filename']}' zurücksetzen?\nDie WAV-Datei wird gelöscht.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        if os.path.isfile(wav_path):
+            os.remove(wav_path)
+
+        self._update_table_status(row, False)
+        self._update_stats()
+
+        if row == self.current_row:
+            self.waveform.clear()
+            self.btn_play.setEnabled(False)
+            self.current_audio = None
+
     # ── Aufnahme ────────────────────────────────────────────────────────
 
     def _start_recording(self) -> None:
@@ -1041,6 +1092,9 @@ class RecorderWindow(QMainWindow):
         self._update_stats()
         self.status_indicator.set_status("saved")
         self.vu_meter.reset()
+
+        if self.auto_play:
+            QTimer.singleShot(1000, self._play_current)
 
     # ── Wiedergabe ──────────────────────────────────────────────────────
 
@@ -1210,6 +1264,7 @@ def main() -> None:
     parser.add_argument("--input-device", type=int, default=None, help="Audio-Eingabegerät ID (siehe --list-devices)")
     parser.add_argument("--output-device", type=int, default=None, help="Audio-Ausgabegerät ID (siehe --list-devices)")
     parser.add_argument("--list-devices", action="store_true", help="Verfügbare Audio-Geräte auflisten und beenden")
+    parser.add_argument("--auto-play", action="store_true", help="Aufnahme nach dem Speichern automatisch abspielen")
 
     args = parser.parse_args()
 
@@ -1234,6 +1289,7 @@ def main() -> None:
         channels=args.channels,
         input_device=args.input_device,
         output_device=args.output_device,
+        auto_play=args.auto_play,
     )
     window.show()
 
