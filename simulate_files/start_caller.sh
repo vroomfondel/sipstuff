@@ -14,11 +14,7 @@ function list_snddevices {
 
 list_snddevices
 
-data_dir="${SCRIPT_DIR}/../sipstuff_data.local"
 
-if ! [ -d "${data_dir}" ] ; then
-  mkdir -p "${data_dir}"
-fi
 
 GPU_FLAGS=()
 STT_DEVICE_FLAGS=()
@@ -57,6 +53,14 @@ if "$USE_OPENVINO"; then
   STT_DEVICE_FLAGS=("--stt-backend" "openvino")
   sipstuff_image="${sipstuff_image/noopenvino/openvino}"
 fi
+
+data_dir="${SCRIPT_DIR}/../sipstuff_data.local"
+
+if ! [ -d "${data_dir}" ] ; then
+  mkdir -p "${data_dir}"
+fi
+
+set +x
 
 podman run --network=host -it --rm \
   --userns=keep-id:uid=1200,gid=1201 \

@@ -48,6 +48,11 @@ SND_DEVICE_FLAGS=()
 #SND_DEVICE_FLAGS+=("-v" "/run/user/$(id -u)/pulse:/run/user/1200/pulse")
 #SND_DEVICE_FLAGS+=("-e" "PULSE_SERVER=unix:/run/user/1200/pulse/native")
 
+data_dir="${SCRIPT_DIR}/../sipstuff_data.local"
+
+if ! [ -d "${data_dir}" ] ; then
+  mkdir -p "${data_dir}"
+fi
 
 set +x
 
@@ -60,9 +65,9 @@ podman run --rm -it --userns=keep-id:uid=1200,gid=1201 \
   -v "${SCRIPT_DIR}/../sipstuff/realtime/pjsip_realtime_tts.py:/app/sipstuff/realtime/pjsip_realtime_tts.py:ro" \
   -v "${SCRIPT_DIR}/../sipstuff/transcribe/pjsip_live_transcribe.py:/app/sipstuff/transcribe/pjsip_live_transcribe.py:ro" \
   -v "${SCRIPT_DIR}/../sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py:/app/sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py:ro" \
-  -v "${SCRIPT_DIR}/../sipstuff_data.local/piper-models:/piper-models" \
-  -v "${SCRIPT_DIR}/../sipstuff_data.local/whisper-models:/whisper-models" \
-  -v "${SCRIPT_DIR}/../sipstuff_data.local/recordings_callee:/recordings" \
+  -v "${data_dir}/piper-models:/piper-models" \
+  -v "${data_dir}/whisper-models:/whisper-models" \
+  -v "${data_dir}/recordings_callee:/recordings" \
   "${sipstuff_image}" \
   sipstuff-cli callee_live-transcribe \
     --server 127.0.0.1 \

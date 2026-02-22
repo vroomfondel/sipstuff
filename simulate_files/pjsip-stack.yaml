@@ -227,6 +227,12 @@ spec:
         - --answer-delay
         - "1.0"
         - --interactive
+        - --stt-model
+        - base
+        - --stt-data-dir
+        - /whisper-models
+        - --stt-language
+        - de
       env:
         - name: LOG_LEVEL
           value: "3"
@@ -242,6 +248,9 @@ spec:
           readOnly: true
         - name: piper-models
           mountPath: /piper-models
+          readOnly: true
+        - name: whisper-models
+          mountPath: /whisper-models
           readOnly: true
   volumes:
     - name: conf-pjsip

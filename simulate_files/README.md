@@ -134,7 +134,7 @@ podman-compose down
 | 1001      | geheim1001  | Live-transcribe client (auto-registered) |
 | 1002      | geheim1002  | External softphone for testing           |
 | 1003      | geheim1003  | Autoanswer TTS client (auto-registered)  |
-| 1004      | geheim1004  | Realtime TTS client (auto-registered)    |
+| 1004      | geheim1004  | Realtime TTS + STT client (auto-registered) |
 
 ## Special Numbers
 
@@ -143,7 +143,7 @@ podman-compose down
 | 1001   | Call live-transcribe client (answering machine)   |
 | 1002   | Call external softphone                           |
 | 1003   | Call autoanswer TTS client                        |
-| 1004   | Call realtime TTS client (interactive)            |
+| 1004   | Call realtime TTS client (interactive, live STT)  |
 | *99    | Echo test (hear yourself)                         |
 
 ## Configuration

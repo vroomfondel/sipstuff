@@ -45,6 +45,11 @@ SND_DEVICE_FLAGS=()
 #SND_DEVICE_FLAGS+=("-v" "/run/user/$(id -u)/pulse:/run/user/1200/pulse")
 #SND_DEVICE_FLAGS+=("-e" "PULSE_SERVER=unix:/run/user/1200/pulse/native")
 
+data_dir="${SCRIPT_DIR}/../sipstuff_data.local"
+
+if ! [ -d "${data_dir}" ] ; then
+  mkdir -p "${data_dir}"
+fi
 
 set +x
 
@@ -55,7 +60,7 @@ podman run --rm -it --userns=keep-id:uid=1200,gid=1201 \
   --name pjsip-autoanswer \
   -e LOG_LEVEL=3 \
   -v "${SCRIPT_DIR}/../sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py:/app/sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py:ro" \
-  -v "${SCRIPT_DIR}/../sipstuff_data.local/piper-models:/piper-models" \
+  -v "${data_dir}/piper-models:/piper-models" \
   "${sipstuff_image}" \
   sipstuff-cli callee_autoanswer \
     --server 127.0.0.1 \

@@ -160,6 +160,7 @@ services:
       # - /run/user/1000/pulse:/run/user/1200/pulse
       - ../sipstuff/realtime/pjsip_realtime_tts.py:/app/sipstuff/realtime/pjsip_realtime_tts.py:ro
       - ../sipstuff_data.local/piper-models:/piper-models:ro
+      - ../sipstuff_data.local/whisper-models:/whisper-models:ro
     command: >-
       sipstuff-cli callee_realtime-tts
         --server 127.0.0.1
@@ -170,3 +171,6 @@ services:
         --tts-text "Willkommen! Sie sind mit dem Echtzeit-TTS-Client verbunden."
         --answer-delay 1.0
         --interactive
+        --stt-model base
+        --stt-data-dir /whisper-models
+        --stt-language de

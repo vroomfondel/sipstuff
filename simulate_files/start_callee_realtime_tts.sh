@@ -45,6 +45,19 @@ SND_DEVICE_FLAGS=()
 #SND_DEVICE_FLAGS+=("-v" "/run/user/$(id -u)/pulse:/run/user/1200/pulse")
 #SND_DEVICE_FLAGS+=("-e" "PULSE_SERVER=unix:/run/user/1200/pulse/native")
 
+STT_DEVICE_FLAGS=()
+if "$USE_CUDA"; then
+  STT_DEVICE_FLAGS+=("--stt-device" "cuda")
+fi
+if "$USE_OPENVINO"; then
+  STT_DEVICE_FLAGS+=("--stt-backend" "openvino")
+fi
+
+data_dir="${SCRIPT_DIR}/../sipstuff_data.local"
+
+if ! [ -d "${data_dir}" ] ; then
+  mkdir -p "${data_dir}"
+fi
 
 set +x
 
@@ -55,7 +68,8 @@ podman run --rm -it --userns=keep-id:uid=1200,gid=1201 \
   --name pjsip-realtime-tts \
   -e LOG_LEVEL=3 \
   -v "${SCRIPT_DIR}/../sipstuff/realtime/pjsip_realtime_tts.py:/app/sipstuff/realtime/pjsip_realtime_tts.py:ro" \
-  -v "${SCRIPT_DIR}/../sipstuff_data.local/piper-models:/piper-models" \
+  -v "${data_dir}/piper-models:/piper-models" \
+  -v "${data_dir}/whisper-models:/whisper-models" \
   "${sipstuff_image}" \
   sipstuff-cli callee_realtime-tts \
     --server 127.0.0.1 \
@@ -65,4 +79,8 @@ podman run --rm -it --userns=keep-id:uid=1200,gid=1201 \
     --piper-model /piper-models/de_DE-thorsten-high.onnx \
     --tts-text "Willkommen! Sie sind mit dem Echtzeit-TTS-Client verbunden." \
     --answer-delay 1.0 \
-    --interactive
+    --interactive \
+    --stt-model base \
+    --stt-data-dir /whisper-models \
+    --stt-language de \
+    "${STT_DEVICE_FLAGS[@]}"
