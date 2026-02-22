@@ -45,7 +45,7 @@ Optional extras (installable via `pip install sipstuff[extra]`):
 - **`openvino`** — Intel OpenVINO backend for STT (`optimum-intel[openvino]`)
 - **`training`** — Voice training utilities (`pynput`, `PySide6`)
 
-For TTS support: install `piper-tts` (optional, only needed for `--text`). Because `piper-phonemize-fix` has no Python 3.14 wheels, the Docker image uses a separate Python 3.13 virtualenv at `/opt/piper-venv`. Resampling TTS output requires `ffmpeg`.
+For TTS support: `piper-tts` (≥1.4.0) is included as a dependency and works directly with Python 3.14.
 
 For STT support: `pip install faster-whisper` (optional, only needed for transcription). Whisper models are auto-downloaded on first use (~1.5 GB for the `medium` model).
 
@@ -885,12 +885,10 @@ All settings can be set via `SIP_` prefixed environment variables:
 | `SIP_AUTO_ANSWER` | `callee.auto_answer` (default: `true`) |
 | `SIP_ANSWER_DELAY` | `callee.answer_delay` (default: `1.0`) |
 
-**TTS runtime (piper binary paths):**
+**TTS runtime:**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PIPER_BIN` | `/opt/piper-venv/bin/piper` | Path to piper CLI binary |
-| `PIPER_PYTHON` | `/opt/piper-venv/bin/python` | Python interpreter for piper venv |
 | `PIPER_DATA_DIR` | `~/.local/share/piper-voices` | Directory for downloaded voice models |
 
 **STT runtime (faster-whisper):**
@@ -963,7 +961,7 @@ Non-standard formats (stereo, different bit depths/rates) will produce warnings 
 | `vad.py` | `VADAudioBuffer` — voice activity detection buffer for live transcription |
 | `audio.py` | `resample_linear()` (numpy), `ensure_wav_16k_mono()` — audio format utilities |
 | `snddevice_list.py` | Sound device enumeration utility |
-| `tts/tts.py` | Piper TTS integration: text-to-WAV generation with optional resampling (uses `/opt/piper-venv`) |
+| `tts/tts.py` | Piper TTS integration: text-to-WAV generation via Python API with optional resampling |
 | `tts/live.py` | Live TTS streaming: `PiperTTSProducer` (producer thread), `TTSMediaPort` (PJSIP consumer), `interactive_console()` |
 | `stt/stt.py` | Speech-to-text via faster-whisper: WAV transcription with Silero VAD pre-filtering and segment timestamps |
 | `stt/live.py` | Live STT streaming during calls |
@@ -975,11 +973,10 @@ Non-standard formats (stereo, different bit depths/rates) will produce warnings 
 | `example_config.yaml` | Sample configuration file |
 | `dist_scripts/install_pjsip.sh` | Build script for PJSIP with Python bindings (default: 2.16) |
 
-## Dockerfile (Three-Stage Build)
+## Dockerfile (Two-Stage Build)
 
 1. **`pjsip-builder`** (`python:3.14-slim-trixie`): builds PJSIP from source, copies `.so` libs + Python SWIG bindings
-2. **`piper-builder`** (`python:3.13-slim-trixie`): creates `/opt/piper-venv` with piper-tts, bundles Python 3.13 runtime into `/opt/python313/`
-3. **Main image** (`python:3.14-slim-trixie`): copies both artifacts, installs sipstuff. Runs as non-root `pythonuser` (UID 1200). Locale `de_DE.UTF-8`, tz `Europe/Berlin`. Entrypoint: `tini`.
+2. **Main image** (`python:3.14-slim-trixie`): copies PJSIP artifacts, installs sipstuff (including `piper-tts` via pip). Runs as non-root `pythonuser` (UID 1200). Locale `de_DE.UTF-8`, tz `Europe/Berlin`. Entrypoint: `tini`.
 
 Optional build args:
 - `INSTALL_CUDA=true`: installs NVIDIA CUDA runtime libs for faster-whisper GPU inference

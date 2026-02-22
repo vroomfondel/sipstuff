@@ -38,7 +38,7 @@ sipstuff/
 ├── pjsip_common.py      # Shared argparse + PJSIP helpers for experimental subpackages
 ├── tts/
 │   ├── __init__.py      # Re-exports: generate_wav, TtsError, PiperTTSProducer, TTSMediaPort, audio constants
-│   ├── tts.py           # Piper TTS via subprocess, model auto-download, resampling
+│   ├── tts.py           # Piper TTS via Python API, model auto-download, resampling
 │   └── live.py          # Live TTS streaming: PiperTTSProducer, TTSMediaPort, interactive_console()
 └── stt/
     ├── __init__.py      # Re-exports: transcribe_wav, SttError
@@ -62,7 +62,7 @@ cli.py
   │     └── [pjsua2]  (C extension, optional — graceful ImportError)
   ├── tts/tts.py    (generate_wav, TtsError)
   │     ├── audio.py  (resample_linear)
-  │     └── [soundfile, piper subprocess]
+  │     └── [soundfile, piper]
   └── stt/stt.py    (transcribe_wav, SttError)
         └── [faster_whisper]  (optional — graceful ImportError)
 
@@ -111,7 +111,7 @@ pjsip_common.py  (used only by experimental subpackages: transcribe/, realtime/,
 
 | Name | Type | Purpose |
 |------|------|---------|
-| `generate_wav()` | function | Synthesize text to a WAV file via piper CLI subprocess |
+| `generate_wav()` | function | Synthesize text to a WAV file via piper Python API |
 | `TtsError` | exception | Raised when piper is not found or synthesis fails |
 
 ### `stt/stt.py`
@@ -850,7 +850,7 @@ producer.stop()
 
 | Name | Type | Purpose |
 |------|------|---------|
-| `PiperTTSProducer` | class | Producer thread: synthesises text via Piper CLI subprocess, resamples, and enqueues 20 ms PCM chunks |
+| `PiperTTSProducer` | class | Producer thread: synthesises text via Piper Python API, resamples, and enqueues 20 ms PCM chunks |
 | `TTSMediaPort` | class (`pj.AudioMediaPort` subclass) | Consumer: dequeues PCM chunks every 20 ms in `onFrameRequested()` and feeds them to PJSIP |
 | `CLOCK_RATE` | int | `16000` — audio sample rate |
 | `SAMPLES_PER_FRAME` | int | `320` — samples per 20 ms frame |
@@ -882,30 +882,18 @@ path = generate_wav(text="Hello World", model="en_US-lessac-high")
 
 **How it works:**
 
-1. `_find_piper()` locates the piper CLI at `$PIPER_BIN`
-   (`/opt/piper-venv/bin/piper`) or falls back to `PATH`.
-2. `_ensure_model()` checks whether `{data_dir}/{model}.onnx` exists.  If not,
-   it invokes `piper.download_voices.download_voice` via the piper venv Python
-   interpreter (`$PIPER_PYTHON`, default `/opt/piper-venv/bin/python`) with a
-   120-second timeout.
-3. `subprocess.run()` runs:
-   ```
-   piper --model <model> --data-dir <dir> --output_file <wav>
-   ```
-   with the text piped to stdin.
+1. `_ensure_model()` checks whether `{data_dir}/{model}.onnx` exists.  If not,
+   it calls `piper.download_voices.download_voice()` to fetch the model from
+   HuggingFace.
+2. `PiperVoice.load()` loads the ONNX model into an inference session.
+3. `PiperVoice.synthesize_wav()` synthesizes text directly into a WAV file.
 4. If `sample_rate > 0`, `_resample_wav()` reads the WAV via `soundfile`,
    calls `resample_linear()`, and writes back as mono 16-bit PCM.
-
-**Why a separate venv?**  `piper-phonemize-fix` has no Python 3.14 wheels.
-Piper runs in a Python 3.13 venv at `/opt/piper-venv`; sipstuff communicates
-via subprocess.
 
 **Environment variables for TTS:**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PIPER_BIN` | `/opt/piper-venv/bin/piper` | Path to the piper CLI binary |
-| `PIPER_PYTHON` | `/opt/piper-venv/bin/python` | Python interpreter inside the piper venv |
 | `PIPER_DATA_DIR` | `~/.local/share/piper-voices` | Directory for downloaded voice models |
 
 ---

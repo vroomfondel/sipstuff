@@ -4,31 +4,25 @@ Live TTS streaming into PJSIP calls using a producer-consumer pattern.
 Provides the two core building blocks for real-time TTS streaming in SIP calls:
 
 - ``PiperTTSProducer``: Producer thread that synthesizes text chunk-by-chunk
-  via the Piper CLI subprocess and writes raw PCM data into a shared queue.
+  via the Piper Python API and writes raw PCM data into a shared queue.
 - ``TTSMediaPort``: PJSUA2 ``AudioMediaPort`` consumer that drains the queue
   every 20 ms and feeds PCM frames to the PJSIP conference bridge.
 - ``interactive_console``: Helper that reads text from stdin and forwards it
   to a ``PiperTTSProducer`` for live speaking during an active call.
 """
 
-import os
-import shutil
 import struct
-import subprocess
 import sys
-import tempfile
 import threading
-import wave
 from queue import Empty, Queue
-from typing import IO, Optional
+from typing import Optional
 
 import numpy as np
 from loguru import logger
+from piper import PiperVoice
 
 from sipstuff.audio import resample_linear
 from sipstuff.tts.tts import TtsModelInfo
-
-_PIPER_BIN = os.getenv("PIPER_BIN", "/opt/piper-venv/bin/piper")
 
 try:
     import pjsua2 as pj
@@ -56,7 +50,7 @@ CHANNEL_COUNT = 1
 
 
 class PiperTTSProducer:
-    """Producer thread that synthesizes text via the Piper CLI and enqueues PCM chunks.
+    """Producer thread that synthesizes text via the Piper Python API and enqueues PCM chunks.
 
     Text requests submitted via ``speak()`` are processed sequentially in a
     dedicated background thread.  Each synthesized utterance is split into
@@ -87,8 +81,8 @@ class PiperTTSProducer:
             target_rate: Target PCM sample rate in Hz.  Audio is resampled to
                 this rate when the Piper model's native rate differs.
             tts_model_info: Optional pre-loaded model metadata.  When provided,
-                the Piper binary path and model path are taken from this object
-                instead of ``model_path`` and the ``PIPER_BIN`` environment variable.
+                the PiperVoice instance and model path are taken from this object
+                instead of loading from ``model_path``.
             use_cuda: Use CUDA GPU acceleration for Piper TTS.
         """
         self.model_path = model_path
@@ -100,29 +94,22 @@ class PiperTTSProducer:
         self.text_queue: "Queue[str | None]" = Queue()
         self._thread: Optional[threading.Thread] = None
         self._running = False
-        self._piper_bin: str = ""
+        self._voice: PiperVoice | None = None
         self._log = logger.bind(classname="PiperTTSProducer")
-        self._piper_log = logger.bind(classname="Piper")
 
     def start(self) -> None:
-        """Resolve the Piper binary and model, then start the producer thread."""
+        """Load the Piper voice model and start the producer thread."""
         if self._tts_model_info is not None:
-            self._piper_bin = self._tts_model_info.piper_bin
+            self._voice = self._tts_model_info.voice
             self.model_path = str(self._tts_model_info.model_path)
         else:
-            piper_bin = _PIPER_BIN
-            if not os.path.isfile(piper_bin):
-                piper_bin = shutil.which("piper") or ""
-            if not piper_bin or not os.path.isfile(piper_bin):
-                self._log.error(f"Piper-Binary nicht gefunden (PIPER_BIN={_PIPER_BIN})")
+            import os
+
+            if not os.path.isfile(self.model_path):
+                self._log.error(f"Piper-Modell nicht gefunden: {self.model_path}")
                 sys.exit(1)
-            self._piper_bin = piper_bin
+            self._voice = PiperVoice.load(self.model_path, use_cuda=self._use_cuda)
 
-        if not os.path.isfile(self.model_path):
-            self._log.error(f"Piper-Modell nicht gefunden: {self.model_path}")
-            sys.exit(1)
-
-        self._log.info(f"Piper-Binary: {self._piper_bin}")
         self._log.info(f"Piper-Modell: {self.model_path}")
 
         self._running = True
@@ -171,103 +158,55 @@ class PiperTTSProducer:
     def _synthesize_and_enqueue(self, text: str) -> None:
         """Synthesize one text utterance and push PCM chunks onto the audio queue.
 
-        Runs the Piper subprocess with ``text`` on stdin, writes WAV output to
-        a temporary file, reads and decodes the PCM samples, resamples to
-        ``target_rate`` when the model's native rate differs, splits the audio
-        into 20 ms frames (``SAMPLES_PER_FRAME`` samples each, zero-padded if
-        the last chunk is short), and enqueues each frame as raw little-endian
-        16-bit PCM bytes.  A ``b"__EOS__"`` sentinel is appended after the last
-        chunk.  The temporary WAV file is always deleted on exit.
+        Uses the Piper Python API to synthesize text directly, iterating over
+        ``AudioChunk`` objects.  Raw PCM bytes are extracted, resampled to
+        ``target_rate`` when the model's native rate differs, split into 20 ms
+        frames (``SAMPLES_PER_FRAME`` samples each, zero-padded if the last
+        chunk is short), and enqueued as raw little-endian 16-bit PCM bytes.
+        A ``b"__EOS__"`` sentinel is appended after the last chunk.
 
         Args:
             text: The utterance to synthesize.
         """
         self._log.info(f'Synthetisiere: "{text}"')
+        assert self._voice is not None
 
-        tmp_path = ""
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-                tmp_path = tmp.name
+        all_samples: list[int] = []
+        source_rate = self._voice.config.sample_rate
 
-            cmd = [self._piper_bin, "--model", self.model_path, "--output_file", tmp_path]
-            if self._use_cuda:
-                cmd.append("--cuda")
+        for audio_chunk in self._voice.synthesize(text):
+            raw_bytes = audio_chunk.audio_int16_bytes
+            n_samples = len(raw_bytes) // 2
+            chunk_samples = list(struct.unpack(f"<{n_samples}h", raw_bytes))
+            all_samples.extend(chunk_samples)
 
-            proc = subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
+        # Resampling falls nötig (Piper nutzt oft 22050 Hz)
+        if source_rate != self.target_rate:
+            arr = resample_linear(np.array(all_samples, dtype=np.float32), source_rate, self.target_rate)
+            all_samples = np.clip(arr, -32768, 32767).astype(np.int16).tolist()
 
-            stderr_thread = threading.Thread(
-                target=self._stream_piper_logs,
-                args=(proc.stderr,),
-                daemon=True,
-            )
-            stderr_thread.start()
+        # In Chunks aufteilen (SAMPLES_PER_FRAME pro Chunk = 20ms)
+        chunk_size = SAMPLES_PER_FRAME
+        total_chunks = 0
 
-            assert proc.stdin is not None
-            proc.stdin.write(text)
-            proc.stdin.close()
-            assert proc.stdout is not None
-            proc.stdout.read()  # drain stdout
-            proc.wait(timeout=30)
-            stderr_thread.join(timeout=5)
+        for i in range(0, len(all_samples), chunk_size):
+            chunk = all_samples[i : i + chunk_size]
 
-            if proc.returncode != 0:
-                self._log.error(f"Piper fehlgeschlagen (rc={proc.returncode})")
-                return
+            # Letzten Chunk mit Stille auffüllen
+            if len(chunk) < chunk_size:
+                chunk.extend([0] * (chunk_size - len(chunk)))
 
-            with wave.open(tmp_path, "rb") as wav_file:
-                source_rate = wav_file.getframerate()
-                n_frames = wav_file.getnframes()
-                raw_data = wav_file.readframes(n_frames)
+            # PCM-Bytes in die Queue
+            pcm_bytes = struct.pack(f"<{chunk_size}h", *chunk)
+            self.audio_queue.put(pcm_bytes)
+            total_chunks += 1
 
-            # Samples dekodieren
-            n_samples = len(raw_data) // 2
-            samples = list(struct.unpack(f"<{n_samples}h", raw_data))
+        # End-of-Speech Marker (leerer Bytes-Block)
+        # Wird vom Consumer erkannt um ggf. Pausen einzufügen
+        self.audio_queue.put(b"__EOS__")
 
-            # Resampling falls nötig (Piper nutzt oft 22050 Hz)
-            if source_rate != self.target_rate:
-                arr = resample_linear(np.array(samples, dtype=np.float32), source_rate, self.target_rate)
-                samples = np.clip(arr, -32768, 32767).astype(np.int16).tolist()
-
-            # In Chunks aufteilen (SAMPLES_PER_FRAME pro Chunk = 20ms)
-            chunk_size = SAMPLES_PER_FRAME
-            total_chunks = 0
-
-            for i in range(0, len(samples), chunk_size):
-                chunk = samples[i : i + chunk_size]
-
-                # Letzten Chunk mit Stille auffüllen
-                if len(chunk) < chunk_size:
-                    chunk.extend([0] * (chunk_size - len(chunk)))
-
-                # PCM-Bytes in die Queue
-                pcm_bytes = struct.pack(f"<{chunk_size}h", *chunk)
-                self.audio_queue.put(pcm_bytes)
-                total_chunks += 1
-
-            # End-of-Speech Marker (leerer Bytes-Block)
-            # Wird vom Consumer erkannt um ggf. Pausen einzufügen
-            self.audio_queue.put(b"__EOS__")
-
-            duration_ms = (len(samples) / self.target_rate) * 1000
-            self._log.info(f"TTS fertig: {total_chunks} Chunks, ~{duration_ms:.0f}ms Audio")
-        finally:
-            if tmp_path and os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-
-    def _stream_piper_logs(self, stream: IO[str] | None) -> None:
-        """Read Piper's stderr line by line and forward each line to loguru."""
-        if stream is None:
-            return
-        for line in stream:
-            line = line.rstrip()
-            if line:
-                self._piper_log.info(line)
+        duration_ms = (len(all_samples) / self.target_rate) * 1000
+        self._log.info(f"TTS fertig: {total_chunks} Chunks, ~{duration_ms:.0f}ms Audio")
 
 
 # ============================================================

@@ -198,10 +198,8 @@ wget https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/
 Both the `.onnx` model file and the accompanying `.onnx.json` config file must be present in the
 same directory. Pass the `.onnx` path to `--piper-model`.
 
-> Note: In the main `sipstuff` package, Piper TTS is invoked via a subprocess into a separate
-> Python 3.13 venv (because `piper-phonemize-fix` lacks 3.14 wheels). This autoanswer script uses
-> the direct in-process `PiperVoice` API instead and therefore requires `piper-tts` to be
-> installed in the same environment as the script.
+> Note: Since piper-tts ≥1.4.0, all `sipstuff` modules (including the main package) use the
+> direct in-process `PiperVoice` API. No separate venv or subprocess is needed.
 
 ---
 

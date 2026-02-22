@@ -30,41 +30,7 @@ shutil.copy2(_pjsua2.__file__, dst);\
 print('Staged libs:', os.listdir('/pjsip-libs'));\
 print('Staged python:', os.listdir(dst))"
 
-# ─── Stage 2: piper-tts with Python 3.13 ──────────────────────────────────
-# piper-tts depends on piper-phonemize which ships native C++ extensions.
-# The original piper-phonemize is discontinued (last release 2023, wheels 3.9–3.12).
-# piper-phonemize-fix (community fork, 2025) provides wheels up to 3.13,
-# but still no Python 3.14 support.  We build a self-contained Python 3.13
-# venv here and copy it into the main image; sipstuff/tts.py invokes the
-# piper CLI via subprocess.
-FROM python:3.13-${debian_version} AS piper-builder
-
-RUN python3 -m venv /opt/piper-venv && \
-    /opt/piper-venv/bin/pip install --no-cache-dir piper-phonemize-fix piper-tts pathvalidate && \
-    /opt/piper-venv/bin/python -c "from piper.__main__ import main; print('piper-tts OK')"
-
-# Collect portable Python 3.13 runtime for the venv
-RUN mkdir -p /opt/python313/bin /opt/python313/lib && \
-    cp /usr/local/bin/python3.13 /opt/python313/bin/ && \
-    cp -P /usr/local/lib/libpython3.13*.so* /opt/python313/lib/ && \
-    cp -a /usr/local/lib/python3.13 /opt/python313/lib/python3.13 && \
-    rm -rf /opt/python313/lib/python3.13/test \
-           /opt/python313/lib/python3.13/idlelib \
-           /opt/python313/lib/python3.13/tkinter \
-           /opt/python313/lib/python3.13/turtledemo \
-           /opt/python313/lib/python3.13/lib2to3 \
-           /opt/python313/lib/python3.13/ensurepip && \
-    find /opt/python313 -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true
-
-# Repoint venv symlinks to the portable runtime location
-RUN rm -f /opt/piper-venv/bin/python /opt/piper-venv/bin/python3 /opt/piper-venv/bin/python3.13 && \
-    ln -s /opt/python313/bin/python3.13 /opt/piper-venv/bin/python && \
-    ln -s /opt/python313/bin/python3.13 /opt/piper-venv/bin/python3 && \
-    ln -s /opt/python313/bin/python3.13 /opt/piper-venv/bin/python3.13 && \
-    sed -i 's|/usr/local|/opt/python313|g' /opt/piper-venv/pyvenv.cfg && \
-    find /opt/piper-venv -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true
-
-# ─── Stage 3: Main image ───────────────────────────────────────────────────
+# ─── Stage 2: Main image ───────────────────────────────────────────────────
 FROM python:${python_version}-${debian_version}
 
 # repeat without defaults in this build-stage
@@ -122,11 +88,6 @@ RUN PYDIR=$(python3 -c "import site; print(site.getsitepackages()[0])") && \
     cp /tmp/pjsip-python/* "$PYDIR/" && \
     rm -rf /tmp/pjsip-python && \
     ldconfig
-
-# Python 3.13 runtime + piper-tts venv (piper-phonemize-fix has no Python 3.14 wheels)
-COPY --from=piper-builder /opt/python313 /opt/python313
-COPY --from=piper-builder /opt/piper-venv /opt/piper-venv
-RUN echo "/opt/python313/lib" > /etc/ld.so.conf.d/python313.conf && ldconfig
 
 ENV PATH="/home/${UNAME}/.local/bin:$PATH"
 

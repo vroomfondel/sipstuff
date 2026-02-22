@@ -43,7 +43,7 @@ The core design separates synthesis (slow, I/O-bound) from audio delivery (hard 
 │   (Producer Thread)  │                       │    (Consumer)        │
 │                       │                       │                      │
 │  text_queue (str)    │                       │  onFrameRequested()  │
-│  → Piper subprocess  │                       │  called every 20 ms  │
+│  → Piper Python API  │                       │  called every 20 ms  │
 │  → WAV → resample    │                       │  pulls next chunk or │
 │  → 20 ms PCM chunks  │                       │  sends silence       │
 │  → audio_queue.put() │                       │                      │
@@ -63,7 +63,7 @@ The core design separates synthesis (slow, I/O-bound) from audio delivery (hard 
 **Data flow summary:**
 
 1. `PiperTTSProducer.speak(text)` enqueues the text string into an internal `text_queue`.
-2. The producer thread dequeues the text, runs the Piper binary as a subprocess, reads the output WAV file, resamples from Piper's native rate (typically 22050 Hz) to 16000 Hz, and slices the PCM data into 320-sample (20 ms) chunks, placing each into the shared `audio_queue`.
+2. The producer thread dequeues the text, synthesizes it via the Piper Python API (`PiperVoice.synthesize()`), resamples from Piper's native rate (typically 22050 Hz) to 16000 Hz, and slices the PCM data into 320-sample (20 ms) chunks, placing each into the shared `audio_queue`.
 3. A sentinel value `b"__EOS__"` (End-of-Speech) is enqueued after each utterance.
 4. PJSIP calls `TTSMediaPort.onFrameRequested()` every 20 ms; the port pops one chunk from the queue. If the queue is empty or the EOS marker is encountered, silence is returned instead.
 5. The audio flows from `TTSMediaPort` into the active call via `startTransmit(aud_med)`.
@@ -237,7 +237,6 @@ python -m sipstuff.realtime.pjsip_realtime_tts \
 export SIP_SERVER=pbx.example.com
 export SIP_USER=2001
 export SIP_PASSWORD=hunter2
-export PIPER_BIN=/opt/piper-venv/bin/piper
 python -m sipstuff.realtime.pjsip_realtime_tts \
     --tts-text "Hello from env config." \
     --piper-model ./en_US-lessac-high.onnx
@@ -249,7 +248,6 @@ python -m sipstuff.realtime.pjsip_realtime_tts \
 
 | Variable | Default | Description |
 |---|---|---|
-| `PIPER_BIN` | `/opt/piper-venv/bin/piper` | Full path to the Piper TTS executable |
 | `SIP_SERVER` | `127.0.0.1` | SIP server address (overridden by `--sip-server`) |
 | `SIP_USER` | `testuser` | SIP username (overridden by `--sip-user`) |
 | `SIP_PASSWORD` | `testpassword` | SIP password (overridden by `--sip-password`) |
@@ -266,7 +264,7 @@ python -m sipstuff.realtime.pjsip_realtime_tts \
 | Dependency | Import / Location | Role |
 |---|---|---|
 | `pjsua2` | `import pjsua2 as pj` | PJSIP Python SWIG bindings — SIP signalling, media ports, event loop |
-| `piper` (CLI binary) | `$PIPER_BIN` or `PATH` | Text-to-speech synthesis, run as subprocess (used by `PiperTTSProducer` in `sipstuff.tts.live`) |
+| `piper-tts` | `pip install piper-tts` | Text-to-speech synthesis via Python API (used by `PiperTTSProducer` in `sipstuff.tts.live`) |
 | `sipstuff.tts.live` | `from sipstuff.tts.live import PiperTTSProducer, TTSMediaPort, ...` | Live TTS producer-consumer classes and audio constants |
 | `sipstuff.sip_callee` | `from sipstuff.sip_callee import CalleeAccount, CalleeCall, SipCallee` | SIP callee framework: account registration, auto-answer, event loop |
 | `sipstuff.sipconfig` | `from sipstuff.sipconfig import add_sip_args, load_config` | Shared argparse helpers and config loading |
@@ -284,8 +282,7 @@ python -m sipstuff.realtime.pjsip_realtime_tts \
 
 ### Piper TTS Binary
 
-The Piper binary is expected at `/opt/piper-venv/bin/piper` (the path created by the `piper-builder`
-Dockerfile stage). Override with the `PIPER_BIN` environment variable. A Piper voice model (`.onnx`
+`piper-tts` (≥1.4.0) is installed as a Python dependency via pip. A Piper voice model (`.onnx`
 file plus its `.onnx.json` config sidecar) must be provided separately via `--piper-model`.
 
 ---

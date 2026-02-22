@@ -11,8 +11,7 @@ sounddevice
 # pjsua2 — must be built from PJSIP C source, see dist_scripts/install_pjsip.sh or copy_pjsua2_from_docker.sh
 # pjsua2
 
-# piper-tts — requires Python ≤3.13 (no 3.14 wheels), runs in separate venv via subprocess
-# piper-tts
+piper-tts>=1.4.0
 
 # Optional: CUDA runtime libs for faster-whisper GPU inference — install with: pip install sipstuff[cuda]
 # nvidia-cublas-cu12

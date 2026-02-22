@@ -18,7 +18,7 @@ make isort            # isort .
 make tcheck           # mypy . (strict mode + pydantic plugin)
 make commit-checks    # pre-commit run --all-files (black --check, mypy, gitleaks)
 make prepare          # tests + commit-checks
-make build            # docker build (three-stage: pjsip-builder, piper-builder, main)
+make build            # docker build (two-stage: pjsip-builder, main)
 make pypibuild        # hatch build --clean
 ```
 
@@ -90,8 +90,8 @@ Two environment variables control PJSIP log output (also settable via `SipCaller
 - `PJSIP_LOG_LEVEL` (default 3): verbosity routed through loguru writer (0=none, 6=trace)
 - `PJSIP_CONSOLE_LEVEL` (default 4): native PJSIP stdout output; set to 0 to suppress
 
-### TTS via Subprocess (`tts/tts.py`)
-Piper TTS runs in a separate Python 3.13 venv (`/opt/piper-venv`) because `piper-phonemize-fix` lacks 3.14 wheels. Invoked via `subprocess.run()`. Optional FFmpeg resampling to 8000/16000 Hz for SIP.
+### TTS via Python API (`tts/tts.py`)
+Piper TTS (≥1.4.0) is called directly via the Python API (`PiperVoice.synthesize_wav()` / `PiperVoice.synthesize()`). No separate venv or subprocess needed. Optional resampling via soundfile/numpy to 8000/16000 Hz for SIP.
 
 ### Optional Dependencies
 `pjsua2` and `faster_whisper` are imported with `try/except ImportError`, setting availability flags (`PJSUA2_AVAILABLE`). Errors raised only when the feature is actually used. PJSUA2 classes use conditional base classes: `pj.Call if PJSUA2_AVAILABLE else object`. Similarly, `sounddevice` has a `SOUNDDEVICE_AVAILABLE` flag in `sip_media.py`.
@@ -102,11 +102,10 @@ Piper TTS runs in a separate Python 3.13 venv (`/opt/piper-venv`) because `piper
 ### Experimental Subpackages
 `transcribe/`, `realtime/`, `autoanswer/`, `training/` — the `autoanswer` and `realtime` packages are integrated into the CLI as `callee_autoanswer` and `callee_realtime-tts` subcommands. `transcribe/` and `training/` are standalone scripts (mostly German), not integrated into the main CLI.
 
-## Dockerfile (Three-Stage Build)
+## Dockerfile (Two-Stage Build)
 
 1. **`pjsip-builder`** (`python:3.14-slim-trixie`): builds PJSIP from source, copies `.so` libs + Python SWIG bindings
-2. **`piper-builder`** (`python:3.13-slim-trixie`): creates `/opt/piper-venv` with piper-tts, bundles Python 3.13 runtime into `/opt/python313/`
-3. **Main image** (`python:3.14-slim-trixie`): copies both artifacts, installs sipstuff. Runs as non-root `pythonuser` (UID 1200). Locale `de_DE.UTF-8`, tz `Europe/Berlin`. Entrypoint: `tini`.
+2. **Main image** (`python:3.14-slim-trixie`): copies PJSIP artifacts, installs sipstuff (including `piper-tts` via pip). Runs as non-root `pythonuser` (UID 1200). Locale `de_DE.UTF-8`, tz `Europe/Berlin`. Entrypoint: `tini`.
 
 Optional build args:
 - `INSTALL_CUDA=true`: installs NVIDIA CUDA runtime libs for faster-whisper GPU inference

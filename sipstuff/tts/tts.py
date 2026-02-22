@@ -1,8 +1,8 @@
-"""Text-to-speech WAV generation using the piper CLI via subprocess.
+"""Text-to-speech WAV generation using the piper Python API.
 
-Generates WAV files from text suitable for SIP playback.  Uses piper-tts
-installed in a Python 3.13 virtualenv at ``/opt/piper-venv`` because
-``piper-phonemize-fix`` has no Python 3.14 wheels.
+Generates WAV files from text suitable for SIP playback.  Uses piper-tts ≥1.4.0
+which ships ``cp39-abi3`` wheels and works directly with Python 3.14 — no
+separate venv or subprocess workaround required.
 
 Voice models are auto-downloaded on first use into a persistent cache
 directory (default: ``~/.local/share/piper-voices``, override with the
@@ -11,34 +11,27 @@ soundfile/numpy converts the native piper output (22 050 Hz) to
 SIP-friendly rates (8 000 Hz narrowband or 16 000 Hz wideband).
 
 Environment Variables:
-    PIPER_BIN: Path to the piper CLI binary
-        (default: ``/opt/piper-venv/bin/piper``).
-    PIPER_PYTHON: Python interpreter inside the piper venv
-        (default: ``/opt/piper-venv/bin/python``).
     PIPER_DATA_DIR: Directory for downloaded voice models
         (default: ``~/.local/share/piper-voices``).
 """
 
 import os
-import shutil
-import subprocess
 import tempfile
 import threading
+import wave
 from dataclasses import dataclass
 from pathlib import Path
 
 import soundfile as sf
 from loguru import logger
+from piper import PiperVoice
+from piper.download_voices import download_voice
 
 from sipstuff.audio import resample_linear
 from sipstuff.sipconfig import TtsConfig
 
 # Persistent model cache directory
 _PIPER_DATA_DIR = Path(os.getenv("PIPER_DATA_DIR", Path.home() / ".local" / "share" / "piper-voices"))
-
-# Python 3.13 venv containing piper-tts (override paths with env vars)
-_PIPER_VENV_BIN = Path(os.getenv("PIPER_BIN", "/opt/piper-venv/bin/piper"))
-_PIPER_VENV_PYTHON = Path(os.getenv("PIPER_PYTHON", "/opt/piper-venv/bin/python"))
 
 
 class TtsError(Exception):
@@ -47,10 +40,9 @@ class TtsError(Exception):
 
 @dataclass(frozen=True)
 class TtsModelInfo:
-    """Resolved TTS model paths returned by ``load_tts_model()``."""
+    """Resolved TTS model info returned by ``load_tts_model()``."""
 
-    piper_bin: str
-    piper_python: str
+    voice: PiperVoice
     model_path: Path
     data_dir: Path
     use_cuda: bool = False
@@ -60,53 +52,19 @@ _TTS_CACHE: dict[tuple[str, str, bool], TtsModelInfo] = {}
 _TTS_CACHE_LOCK = threading.Lock()
 
 
-def _find_piper() -> tuple[str, str]:
-    """Locate the piper CLI binary and its venv Python interpreter.
-
-    Checks the configured venv paths first (``PIPER_BIN`` / ``PIPER_PYTHON``),
-    then falls back to ``PATH`` lookup.
-
-    Returns:
-        A ``(piper_bin, piper_python)`` tuple of absolute path strings.
-
-    Raises:
-        TtsError: If either binary cannot be found.
-    """
-    piper_bin: str | None = None
-    if _PIPER_VENV_BIN.is_file():
-        piper_bin = str(_PIPER_VENV_BIN)
-    else:
-        piper_bin = shutil.which("piper")
-
-    if not piper_bin:
-        raise TtsError(f"piper CLI not found at {_PIPER_VENV_BIN} or on PATH. " "Install with: pip install piper-tts")
-
-    piper_python: str | None = None
-    if _PIPER_VENV_PYTHON.is_file():
-        piper_python = str(_PIPER_VENV_PYTHON)
-    else:
-        piper_python = shutil.which("python3")
-
-    if not piper_python:
-        raise TtsError("Python interpreter for piper venv not found")
-
-    return piper_bin, piper_python
-
-
-def _ensure_model(model: str, data_dir: Path, piper_python: str) -> None:
+def _ensure_model(model: str, data_dir: Path) -> None:
     """Download a piper voice model if not already present in ``data_dir``.
 
-    Invokes ``piper.download_voices.download_voice`` via the Python 3.12
-    venv interpreter to fetch the model's ``.onnx`` and ``.json`` files.
+    Uses ``piper.download_voices.download_voice`` to fetch the model's
+    ``.onnx`` and ``.onnx.json`` files from HuggingFace.
 
     Args:
         model: Piper model name (e.g. ``"de_DE-thorsten-high"``).
         data_dir: Directory to store downloaded model files.
-        piper_python: Path to the Python interpreter inside the piper venv.
 
     Raises:
-        TtsError: If the download times out, returns a non-zero exit code,
-            or the expected ``.onnx`` file is missing after download.
+        TtsError: If the download fails or the expected ``.onnx`` file
+            is missing after download.
     """
     model_path = data_dir / f"{model}.onnx"
     if model_path.exists():
@@ -114,23 +72,9 @@ def _ensure_model(model: str, data_dir: Path, piper_python: str) -> None:
 
     logger.info(f"TTS: downloading voice model '{model}' (first time only)...")
     try:
-        result = subprocess.run(
-            [
-                piper_python,
-                "-c",
-                f"from piper.download_voices import download_voice; "
-                f"from pathlib import Path; "
-                f"download_voice({model!r}, Path({str(data_dir)!r}))",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise TtsError(f"Model download timed out for '{model}'") from exc
-
-    if result.returncode != 0:
-        raise TtsError(f"Failed to download voice model '{model}': {result.stderr}")
+        download_voice(model, data_dir)
+    except Exception as exc:
+        raise TtsError(f"Failed to download voice model '{model}': {exc}") from exc
 
     if not model_path.exists():
         raise TtsError(f"Model download reported success but {model_path} not found")
@@ -146,7 +90,7 @@ def generate_wav(
     data_dir: str | Path | None = None,
     use_cuda: bool = False,
 ) -> Path:
-    """Generate a WAV file from text using piper CLI.
+    """Generate a WAV file from text using piper TTS.
 
     Args:
         text: Text to synthesize.
@@ -179,27 +123,11 @@ def generate_wav(
 
     logger.info(f"TTS: generating speech for {len(text)} chars with model '{model}'")
 
-    cmd = [
-        info.piper_bin,
-        "--model",
-        model,
-        "--data-dir",
-        str(info.data_dir),
-        "--output_file",
-        str(output_path),
-    ]
-    if info.use_cuda:
-        cmd.append("--cuda")
-
     try:
-        result = subprocess.run(cmd, input=text, capture_output=True, text=True, timeout=120)
-    except FileNotFoundError as exc:
-        raise TtsError(f"piper binary not found at {info.piper_bin}") from exc
-    except subprocess.TimeoutExpired as exc:
-        raise TtsError("piper TTS timed out after 120 seconds") from exc
-
-    if result.returncode != 0:
-        raise TtsError(f"piper failed (exit {result.returncode}): {result.stderr}")
+        with wave.open(str(output_path), "wb") as wav_file:
+            info.voice.synthesize_wav(text, wav_file)
+    except Exception as exc:
+        raise TtsError(f"piper TTS synthesis failed: {exc}") from exc
 
     if not output_path.is_file() or output_path.stat().st_size == 0:
         raise TtsError("piper produced no output")
@@ -246,19 +174,19 @@ def _resample_wav(wav_path: Path, target_rate: int) -> None:
 
 
 def load_tts_model(cfg: TtsConfig) -> TtsModelInfo:
-    """Resolve piper binary, ensure model is downloaded, return paths.
+    """Load a PiperVoice, ensure model is downloaded, return info.
 
-    Cached by ``(model, data_dir)`` — subsequent calls with the same config
-    skip binary discovery and filesystem checks.
+    Cached by ``(model, data_dir, use_cuda)`` — subsequent calls with the
+    same config skip model loading and filesystem checks.
 
     Args:
         cfg: TTS configuration with model name and optional data directory.
 
     Returns:
-        A :class:`TtsModelInfo` with resolved binary and model paths.
+        A :class:`TtsModelInfo` with loaded PiperVoice and model paths.
 
     Raises:
-        TtsError: If the piper binary or model cannot be found/downloaded.
+        TtsError: If the model cannot be found/downloaded or loaded.
     """
     data_dir = Path(cfg.data_dir) if cfg.data_dir else _PIPER_DATA_DIR
     key = (cfg.model, str(data_dir), cfg.use_cuda)
@@ -267,14 +195,17 @@ def load_tts_model(cfg: TtsConfig) -> TtsModelInfo:
         if key in _TTS_CACHE:
             return _TTS_CACHE[key]
 
-    piper_bin, piper_python = _find_piper()
     data_dir.mkdir(parents=True, exist_ok=True)
-    _ensure_model(cfg.model, data_dir, piper_python)
+    _ensure_model(cfg.model, data_dir)
     model_path = data_dir / f"{cfg.model}.onnx"
 
+    try:
+        voice = PiperVoice.load(str(model_path), use_cuda=cfg.use_cuda)
+    except Exception as exc:
+        raise TtsError(f"Failed to load piper voice model '{cfg.model}': {exc}") from exc
+
     info = TtsModelInfo(
-        piper_bin=piper_bin,
-        piper_python=piper_python,
+        voice=voice,
         model_path=model_path,
         data_dir=data_dir,
         use_cuda=cfg.use_cuda,
