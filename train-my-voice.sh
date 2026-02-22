@@ -28,6 +28,11 @@
 #   VITS due to data-dependent assert statements in transforms.py (rational_quadratic_spline).
 #   Patch piper1-gpl's export_onnx.py: add dynamo=False to the torch.onnx.export() call.
 #
+# Progress bar:
+#   piper1-gpl's self.log() calls lack prog_bar=True, so loss values don't appear
+#   in the terminal progress bar. Patch lightning.py: add prog_bar=True to the
+#   self.log() calls for loss_g, loss_d, and val_loss.
+#
 set -euo pipefail
 
 # ─── Configuration ──────────────────────────────────────────────────
@@ -41,16 +46,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 BASE_DIR="${SCRIPT_DIR}/training.local/training-piper1-gpl"
 
-# Checkpoint to resume from.
-# For initial warmstart from rhasspy/piper, use --model.vocoder_warmstart_ckpt (see header comments).
-# For resuming from a piper1-gpl checkpoint, use --ckpt_path (native format, strict loading works).
-#
-# Original rhasspy/piper checkpoint (used for initial warmstart):
-#   wget "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/high/epoch%3D2665-step%3D1182078.ckpt" -O thorsten-high.ckpt
-# To switch back to warmstart from rhasspy/piper, uncomment the next line and change --ckpt_path to --model.vocoder_warmstart_ckpt below:
-#CHECKPOINT="${SCRIPT_DIR}/training.local/training-piper/meine-stimme-out/lightning_logs/version_2/checkpoints/epoch=3664-step=1210050.ckpt"
-CHECKPOINT="${SCRIPT_DIR}/training.local/training-piper1-gpl/meine-stimme-out/lightning_logs/version_1/checkpoints/epoch=499-step=7000.ckpt"
-
 # Input
 CSV_PATH="$BASE_DIR/meine-stimme/metadata_piper1.csv"
 AUDIO_DIR="$BASE_DIR/meine-stimme/wavs"
@@ -59,6 +54,34 @@ AUDIO_DIR="$BASE_DIR/meine-stimme/wavs"
 CACHE_DIR="$BASE_DIR/training-cache"
 OUTPUT_DIR="$BASE_DIR/meine-stimme-out"
 CONFIG_PATH="$OUTPUT_DIR/de_DE-meine-stimme-high.onnx.json"
+
+# ─── Checkpoint selection (automatic) ─────────────────────────────
+#   1. If a piper1-gpl checkpoint exists in OUTPUT_DIR → resume with --ckpt_path
+#   2. Otherwise → initial warmstart from rhasspy/piper checkpoint with --model.vocoder_warmstart_ckpt
+
+# Warmstart checkpoint (rhasspy/piper). Auto-downloaded if not present.
+WARMSTART_CHECKPOINT="${SCRIPT_DIR}/training.local/training-piper/meine-stimme-out/lightning_logs/version_2/checkpoints/epoch=3664-step=1210050.ckpt"
+
+WARMSTART_FALLBACK_CKPT_URL="https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/high/epoch%3D2665-step%3D1182078.ckpt"
+WARMSTART_FALLBACK_CONFIG_URL="https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/high/config.json"
+
+# Auto-detect latest piper1-gpl checkpoint
+LATEST_CKPT="$(find "${OUTPUT_DIR}/lightning_logs" -name '*.ckpt' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)"
+if [ -n "$LATEST_CKPT" ]; then
+  CHECKPOINT="$LATEST_CKPT"
+  CKPT_MODE="resume"
+else
+  # No piper1-gpl checkpoint yet — use warmstart from rhasspy/piper
+  if [ ! -f "$WARMSTART_CHECKPOINT" ]; then
+    echo "No piper1-gpl checkpoint found and '${WARMSTART_CHECKPOINT}' does not exist."
+    echo "Downloading rhasspy/piper thorsten-high checkpoint + config..."
+    WARMSTART_CHECKPOINT="${BASE_DIR}/thorsten-high.ckpt"
+    wget -q --show-progress -O "$WARMSTART_CHECKPOINT" "$WARMSTART_FALLBACK_CKPT_URL"
+    wget -q --show-progress -O "${BASE_DIR}/thorsten-high-config.json" "$WARMSTART_FALLBACK_CONFIG_URL"
+  fi
+  CHECKPOINT="$WARMSTART_CHECKPOINT"
+  CKPT_MODE="warmstart"
+fi
 
 
 # Training parameters
@@ -98,6 +121,7 @@ echo "  Piper1-GPL Training: $VOICE_NAME"
 echo "================================================"
 echo ""
 echo "  Checkpoint:    $CHECKPOINT"
+echo "  Mode:          $CKPT_MODE"
 echo "  max_epochs:    $MAX_EPOCHS"
 echo "  Batch size:    $BATCH_SIZE"
 echo "  CSV:           $CSV_PATH"
@@ -121,6 +145,7 @@ python -m piper.train fit \
   --data.cache_dir "$CACHE_DIR" \
   --data.config_path "$CONFIG_PATH" \
   --data.batch_size "$BATCH_SIZE" \
+  --data.num_workers 4 \
   --trainer.max_epochs "$MAX_EPOCHS" \
   --trainer.accelerator gpu \
   --trainer.devices 1 \
@@ -133,9 +158,7 @@ python -m piper.train fit \
   --model.upsample_rates '[8, 8, 2, 2]' \
   --model.upsample_initial_channel 512 \
   --model.upsample_kernel_sizes '[16, 16, 4, 4]' \
-  --ckpt_path "$CHECKPOINT"
-  # To switch back to warmstart (rhasspy/piper checkpoint), replace the line above with:
-  #--model.vocoder_warmstart_ckpt "$CHECKPOINT"
+  "$(if [ "$CKPT_MODE" = "resume" ]; then echo "--ckpt_path"; else echo "--model.vocoder_warmstart_ckpt"; fi)" "$CHECKPOINT"
 
 # ─── Next steps ──────────────────────────────────────────────────
 echo ""
