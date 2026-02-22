@@ -1,6 +1,8 @@
 # Eigene Stimme für Piper TTS erstellen – Komplettanleitung
 
 > Diese Anleitung beschreibt den gesamten Workflow: vom Erstellen eines Trainingsdatensatzes über die Audioaufnahme mit einer GUI-Anwendung bis hin zum Finetuning und Export eines eigenen Piper-TTS-Sprachmodells.
+>
+> **Stand: Februar 2026** — basiert auf [OHF-Voice/piper1-gpl](https://github.com/OHF-Voice/piper1-gpl) v1.4.1 (Nachfolger des archivierten `rhasspy/piper`).
 
 ---
 
@@ -8,14 +10,16 @@
 
 1. [Überblick: Wie Piper TTS funktioniert](#1-überblick-wie-piper-tts-funktioniert)
 2. [Zwei Wege zur eigenen Stimme](#2-zwei-wege-zur-eigenen-stimme)
-3. [Daten vorbereiten: Das LJSpeech-Format](#3-daten-vorbereiten-das-ljspeech-format)
+3. [Daten vorbereiten: Das CSV-Format](#3-daten-vorbereiten-das-csv-format)
 4. [Aufnahme-Setup: Audio-Hardware & EasyEffects](#4-aufnahme-setup-audio-hardware--easyeffects)
 5. [Aufnahme-Tool: PySide6 GUI Recorder](#5-aufnahme-tool-pyside6-gui-recorder)
-6. [Training: Finetuning eines bestehenden Modells](#6-training-finetuning-eines-bestehenden-modells)
-7. [Training: Modell von Grund auf](#7-training-modell-von-grund-auf)
-8. [ONNX-Export & die .onnx.json Konfiguration](#8-onnx-export--die-onnxjson-konfiguration)
-9. [Tipps für gute Ergebnisse](#9-tipps-für-gute-ergebnisse)
-10. [Nützliche Ressourcen](#10-nützliche-ressourcen)
+6. [Training-Umgebung einrichten](#6-training-umgebung-einrichten)
+7. [Training: Finetuning eines bestehenden Modells](#7-training-finetuning-eines-bestehenden-modells)
+8. [Training: Modell von Grund auf](#8-training-modell-von-grund-auf)
+9. [Medium vs. High Quality](#9-medium-vs-high-quality)
+10. [ONNX-Export & die .onnx.json Konfiguration](#10-onnx-export--die-onnxjson-konfiguration)
+11. [Tipps für gute Ergebnisse](#11-tipps-für-gute-ergebnisse)
+12. [Nützliche Ressourcen](#12-nützliche-ressourcen)
 
 ---
 
@@ -45,7 +49,7 @@ Finetuning ist fast immer der bessere Weg, da ein vortrainiertes Modell bereits 
 
 ---
 
-## 3. Daten vorbereiten: Das LJSpeech-Format
+## 3. Daten vorbereiten: Das CSV-Format
 
 ### Verzeichnisstruktur
 
@@ -59,31 +63,34 @@ mein-dataset/
     ...
 ```
 
-### metadata.csv Format
+### metadata.csv Format (piper1-gpl)
 
-Die Datei ist **Pipe-getrennt** (`|`), hat **keinen Header** und drei Spalten:
+Die Datei ist **Pipe-getrennt** (`|`), hat **keinen Header** und **zwei Spalten**:
 
 ```
-dateiname|rohe_transkription|normalisierte_transkription
+dateiname.wav|normalisierte_transkription
 ```
 
-- **Spalte 1**: Dateiname **ohne Pfad und ohne `.wav`-Endung**
-- **Spalte 2**: Text so wie er roh vorliegt (mit Zahlen, Abkürzungen)
-- **Spalte 3**: Text vollständig ausgeschrieben, so wie er gesprochen wird
+- **Spalte 1**: Dateiname **mit `.wav`-Endung**, ohne Pfad
+- **Spalte 2**: Text vollständig ausgeschrieben, so wie er gesprochen wird
 
 ### Beispiele
 
 ```
-satz_0001|Am 3. Januar 2024 waren es -5 °C in Berlin.|Am dritten Januar zweitausendvierundzwanzig waren es minus fünf Grad Celsius in Berlin.
-satz_0002|Dr. Müller hat ca. 250 Patienten pro Monat.|Doktor Müller hat circa zweihundertfünfzig Patienten pro Monat.
-satz_0003|Die A7 ist mit 962,2 km die längste Autobahn Deutschlands.|Die A sieben ist mit neunhundertzweiundsechzig Komma zwei Kilometern die längste Autobahn Deutschlands.
+satz_0001.wav|Am dritten Januar zweitausendvierundzwanzig waren es minus fünf Grad Celsius in Berlin.
+satz_0002.wav|Doktor Müller hat circa zweihundertfünfzig Patienten pro Monat.
+satz_0003.wav|Die A sieben ist mit neunhundertzweiundsechzig Komma zwei Kilometern die längste Autobahn Deutschlands.
 ```
 
-Wenn der Text bereits ausgeschrieben ist, können Spalte 2 und 3 identisch sein:
+### Konvertierung vom alten 3-Spalten-Format
 
+Falls eine bestehende `metadata.csv` im alten rhasspy/piper-Format (3 Spalten, Dateiname ohne `.wav`) vorliegt:
+
+```bash
+python convert_metadata.py /pfad/zu/alte/metadata.csv -o /pfad/zu/metadata_piper1.csv
 ```
-satz_0050|Heute ist ein schöner Tag.|Heute ist ein schöner Tag.
-```
+
+Das Script `convert_metadata.py` liegt im piper1-gpl Repo und übernimmt die normalisierte dritte Spalte als Text und ergänzt die `.wav`-Endung.
 
 ### Regeln
 
@@ -106,7 +113,7 @@ satz_0050|Heute ist ein schöner Tag.|Heute ist ein schöner Tag.
 Für ein gutes TTS-Modell sollten die Trainingssätze abdecken:
 
 - **Phonetische Vielfalt**: Umlaute (ä, ö, ü), ß, ch-Laute, pf, sch, st/sp, zw, qu
-- **Zahlen & Abkürzungen** (roh in Spalte 2, ausgeschrieben in Spalte 3)
+- **Zahlen & Abkürzungen** (im CSV bereits ausgeschrieben)
 - **Verschiedene Satztypen**: Aussagen, Aufforderungen, Fragen, formelle/informelle Sprache
 - **Natürliche Alltagssprache**: Verschiedene Themen und Satzlängen
 
@@ -260,48 +267,68 @@ python record_dataset.py --list-devices
 
 ---
 
-## 6. Training: Finetuning eines bestehenden Modells
+## 6. Training-Umgebung einrichten
 
-### Umgebung einrichten
+### Voraussetzungen
 
-Die Piper-Training-Scripts (`piper_train`) sind **nicht** im `piper-tts` pip-Paket enthalten — sie liegen nur im Quellcode-Repository. Außerdem hat `piper-phonemize` (C++-Bibliothek für Phonemisierung) nur vorcompilierte Wheels bis Python 3.11, und die Paket-Versionen müssen exakt aufeinander abgestimmt sein.
+piper1-gpl benötigt **Python 3.10–3.13** (3.13 empfohlen). Python 3.14 funktioniert für Inferenz, aber `lightning` listet es noch nicht offiziell für Training.
 
-Das Setup-Script `setup_my_env.sh` im Piper-Repository automatisiert die gesamte Einrichtung:
+Im Gegensatz zum alten `rhasspy/piper` wird **kein `piper-phonemize`** mehr benötigt — espeak-ng ist direkt in das `piper-tts` Wheel eingebettet (stable ABI). Ebenso entfällt der separate Preprocessing-Schritt: Phonemisierung, Silence-Trimming und Spektrogramm-Berechnung passieren automatisch beim Training-Start und werden im Cache-Verzeichnis gespeichert.
+
+### Setup
 
 ```bash
-git clone https://github.com/rhasspy/piper.git
-cd piper
+git clone https://github.com/OHF-Voice/piper1-gpl.git
+cd piper1-gpl
+```
+
+Das Setup-Script `setup_my_env.sh` automatisiert die gesamte Einrichtung:
+
+```bash
 ./setup_my_env.sh
 ```
 
 Das Script macht folgendes:
 
-1. **pyenv Build-Abhängigkeiten** installieren (libbz2-dev, libssl-dev, etc.)
-2. **Python 3.11** via pyenv installieren (nötig, weil `piper-phonemize` keine Wheels für 3.12+ hat)
-3. **venv** mit Python 3.11 erstellen
-4. **Kompatible Paket-Versionen** pinnen — `pip install -e .` aus dem Piper-Repo zieht inkompatible Versionen, daher werden die Versionen manuell festgelegt
-5. **piper_train** mit `--no-deps` installieren + fehlende Abhängigkeiten einzeln nachinstallieren
-6. **monotonic_align** C-Modul kompilieren (VITS-Alignment, wird von `piper_train` importiert)
+1. **System-Build-Abhängigkeiten** installieren (`build-essential`, `cmake`, `ninja-build`, etc.)
+2. **Python 3.13** via pyenv installieren
+3. **venv** erstellen
+4. **`pip install -e '.[train]'`** — installiert PyTorch, Lightning, librosa, Cython, etc.
+5. **scikit-build + cmake + ninja** nachinstallieren (für C-Extension Build)
+6. **`python setup.py build_ext --inplace`** — espeak-ng Bridge kompilieren
+7. **`build_monotonic_align.sh`** — VITS Alignment C-Modul kompilieren
+
+### Manuelles Setup (falls venv bereits existiert)
+
+```bash
+cd ~/piper1-gpl
+source .venv/bin/activate
+pip install -e '.[train]'
+pip install "scikit-build<1" "cmake>=3.18,<4" "ninja>=1,<2"
+python setup.py build_ext --inplace
+./build_monotonic_align.sh
+```
 
 <details>
 <summary><b>setup_my_env.sh</b> (Inhalt zum Nachvollziehen)</summary>
 
 ```bash
 #!/usr/bin/env bash
-# Setup-Script für Piper TTS Training auf Python 3.11 (via pyenv)
+# Setup-Script für Piper1-GPL TTS Training auf Python 3.13 (via pyenv)
+# Basiert auf OHF-Voice/piper1-gpl (Nachfolger von rhasspy/piper)
 # Getestet auf Debian Trixie/Sid mit NVIDIA RTX 4090
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_DIR="$SCRIPT_DIR/src/python"
-PYTHON_VERSION=3.11
+PYTHON_VERSION=3.13
 
-echo "=== 1/6: pyenv Build-Abhängigkeiten installieren ==="
-sudo apt install -y build-essential libssl-dev zlib1g-dev libbz2-dev \
-  libreadline-dev libsqlite3-dev libncursesw5-dev xz-utils tk-dev \
-  libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+echo "=== 1/5: System-Build-Abhängigkeiten installieren ==="
+sudo apt install -y build-essential cmake ninja-build \
+  libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev \
+  libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev \
+  libffi-dev liblzma-dev
 
-echo "=== 2/6: Python $PYTHON_VERSION via pyenv installieren ==="
+echo "=== 2/5: Python $PYTHON_VERSION via pyenv installieren ==="
 if ! command -v pyenv &>/dev/null; then
   echo "pyenv nicht gefunden. Installiere pyenv..."
   curl https://pyenv.run | bash
@@ -317,178 +344,260 @@ fi
 PYTHON_BIN="$(pyenv prefix "$PYTHON_VERSION")/bin/python"
 echo "Verwende: $PYTHON_BIN"
 
-echo "=== 3/6: venv erstellen ==="
-cd "$PYTHON_DIR"
+echo "=== 3/5: venv erstellen ==="
+cd "$SCRIPT_DIR"
 rm -rf .venv
 "$PYTHON_BIN" -m venv .venv
 source .venv/bin/activate
 
-echo "=== 4/6: Kompatible Pakete installieren ==="
+echo "=== 4/5: piper1-gpl + Training-Abhängigkeiten installieren ==="
 pip install --upgrade pip wheel setuptools
-pip install \
-  "torch==2.0.1" \
-  "numpy<2" \
-  "pytorch_lightning==1.9.5" \
-  "torchmetrics==0.11.4" \
-  tensorboard \
-  onnxruntime \
-  cython
+pip install -e '.[train]'
 
-echo "=== 5/6: piper_train + Abhängigkeiten installieren ==="
-pip install --no-deps -e .
-pip install piper-phonemize librosa
+# scikit-build + cmake + ninja werden für build_ext benötigt (in [dev], nicht in [train])
+pip install "scikit-build<1" "cmake>=3.18,<4" "ninja>=1,<2"
 
-echo "=== 6/6: monotonic_align C-Modul kompilieren ==="
-cd "$PYTHON_DIR/piper_train/vits/monotonic_align"
-if [ -f setup.py ]; then
-  python setup.py build_ext --inplace
-elif [ -f build_monotonic_align.sh ]; then
-  bash build_monotonic_align.sh
-else
-  echo "WARNUNG: monotonic_align build-script nicht gefunden, überspringe."
-fi
+# Dev-Build für C-Extension (espeak-ng bridge)
+python setup.py build_ext --inplace
 
-echo ""
-echo "=== Fertig! ==="
-echo "Aktiviere die Umgebung mit:"
-echo "  source $PYTHON_DIR/.venv/bin/activate"
+echo "=== 5/5: monotonic_align C-Modul kompilieren ==="
+bash "$SCRIPT_DIR/build_monotonic_align.sh"
 ```
 
 </details>
 
-#### Warum nicht einfach `pip install -e .`?
-
-| Problem | Ursache |
-|---------|---------|
-| `piper-phonemize` nicht installierbar | Wheels nur bis Python 3.11, nicht für 3.12+ |
-| `_bz2` / `_lzma` ModuleNotFoundError | pyenv baut Python ohne `libbz2-dev` etc. |
-| NumPy 1.x vs. 2.x Crash | PyTorch 2.0.1 ist gegen NumPy 1.x kompiliert |
-| `_compare_version` ImportError | `torchmetrics` zu neu für `pytorch_lightning` |
-| `TensorProperties` dataclass ValueError | PyTorch zu neu für `pytorch_lightning 1.7` |
-| `monotonic_align` ModuleNotFoundError | C-Erweiterung muss separat kompiliert werden |
-
 ### Pretrained Checkpoint herunterladen
 
-Checkpoints gibt es unter: https://huggingface.co/rhasspy/piper-checkpoints
+Checkpoints gibt es unter: https://huggingface.co/datasets/rhasspy/piper-checkpoints
 
 Für deutsches Finetuning eignet sich der **thorsten**-Checkpoint besonders gut:
 
 ```bash
-# High-Quality (~951 MB) — größeres Netz, bessere Audioqualität
-wget "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/high/epoch%3D2665-step%3D1182078.ckpt" \
-  -O thorsten-high.ckpt
-
-# Oder Medium (~846 MB) — schneller beim Training und bei der Inferenz
+# Medium-Checkpoint (~846 MB) — direkt nutzbar mit --ckpt_path
 wget "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/medium/epoch%3D3135-step%3D2702056.ckpt" \
   -O thorsten-medium.ckpt
+
+# High-Checkpoint (~951 MB) — nur mit --ckpt_path nutzbar wenn auch High-Quality-Parameter gesetzt werden
+wget "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/high/epoch%3D2665-step%3D1182078.ckpt" \
+  -O thorsten-high.ckpt
 ```
 
-**Wichtig:** Die `--quality`-Option beim Training muss zum Checkpoint passen (`high` für den High-Checkpoint, weglassen für Medium).
+**Wichtig:** Die verfügbaren Checkpoints auf HuggingFace verwenden die **Medium-Architektur**. Für High-Quality-Training mit einem Medium-Checkpoint muss `--model.vocoder_warmstart_ckpt` statt `--ckpt_path` verwendet werden (siehe [Abschnitt 9](#9-medium-vs-high-quality)).
 
-### Preprocessing
+---
+
+## 7. Training: Finetuning eines bestehenden Modells
+
+### Kein separates Preprocessing nötig
+
+Anders als beim alten `rhasspy/piper` gibt es **keinen separaten Preprocessing-Schritt** mehr. Beim Start des Trainings werden automatisch erzeugt und im `--data.cache_dir` gespeichert:
+
+- Phoneme (via eingebettetes espeak-ng)
+- Silence-getrimmtes Audio (via Silero VAD)
+- Mel-Spektrogramme
+
+### Das Cache-Verzeichnis (`--data.cache_dir`)
+
+Der Cache enthält vorberechnete `.pt`-Tensoren für jede Äußerung (Phoneme, getrimmtes Audio, Spektrogramme). Er wird beim nächsten Training-Start wiederverwendet ("skip if exists") und spart erheblich Zeit.
+
+**Empfohlener Pfad**: Neben dem Dataset, z.B. `mein-dataset/cache/`
+
+**Wann löschen**: Nur wenn sich die Eingaben ändern (anderer `espeak_voice`, korrigierte Audio-Dateien, andere `trim_silence`-Einstellung). Bei Änderungen an `batch_size`, `max_epochs` oder Modell-Architektur bleibt der Cache gültig.
+
+### Finetuning starten (Medium Quality)
 
 ```bash
-python -m piper_train.preprocess \
-  --language de \
-  --input-dir /pfad/zu/deinem/dataset \
-  --output-dir /pfad/zu/output \
-  --dataset-format ljspeech \
-  --single-speaker \
-  --sample-rate 22050
+# thorsten-medium steht bei Epoch 3135, +2000 eigene = 5135
+python -m piper.train fit \
+  --data.voice_name "de_DE-meinname-medium" \
+  --data.csv_path /pfad/zu/metadata_piper1.csv \
+  --data.audio_dir /pfad/zu/wavs/ \
+  --model.sample_rate 22050 \
+  --data.espeak_voice de \
+  --data.cache_dir /pfad/zu/mein-dataset/cache/ \
+  --data.config_path /pfad/zu/output/de_DE-meinname-medium.onnx.json \
+  --data.batch_size 32 \
+  --trainer.max_epochs 5135 \
+  --trainer.accelerator gpu \
+  --trainer.devices 1 \
+  --trainer.precision 32 \
+  --ckpt_path /pfad/zu/thorsten-medium.ckpt
 ```
 
-**`--single-speaker` nicht vergessen!** Ohne dieses Flag erzeugt das Preprocessing eine Multi-Speaker-Konfiguration, die nicht zum Single-Speaker thorsten-Checkpoint passt.
-
-Dies erzeugt im Output-Verzeichnis u.a.:
-
-```
-/pfad/zu/output/
-  config.json          ← Modell-Metadaten inkl. Phonem-Mapping
-  phonemes.jsonl
-  audio/
-  ...
-```
-
-### Finetuning starten
-
-```bash
-# Beispiel mit thorsten-high (Checkpoint bei Epoch 2665, +1000 Epochen = 3665)
-python -m piper_train \
-  --dataset-dir /pfad/zu/output \
-  --accelerator gpu \
-  --devices 1 \
-  --batch-size 16 \
-  --max_epochs 3665 \
-  --resume_from_checkpoint /pfad/zu/thorsten-high.ckpt \
-  --quality high \
-  --precision 32
-```
-
-**Wichtige Hinweise:**
+### Wichtige Parameter
 
 | Parameter | Bedeutung |
 |-----------|-----------|
-| `--max_epochs` | **Absolute** Epoch-Zahl, nicht relativ! Checkpoint-Epoch + gewünschte neue Epochen. Thorsten-high startet bei 2665, thorsten-medium bei 3135. |
-| `--quality` | Muss zum Checkpoint passen: `high` für thorsten-high, weglassen (= `medium`) für thorsten-medium. Falsche Qualität → `size mismatch` Fehler. |
-| `--max_epochs` vs. `--max-epochs` | Nur **Unterstrich** (`--max_epochs`) funktioniert, Bindestrich wird nicht erkannt. |
-| `--resume_from_checkpoint` | Damit wird das vortrainierte Modell als Startpunkt verwendet. |
-| `--batch-size` | 16 für ≥12 GB VRAM, 32 für ≥24 GB VRAM (z.B. RTX 4090). |
+| `--trainer.max_epochs` | **Absolut**, nicht relativ! Gesamtzahl der Epochen. Bei `--ckpt_path` wird der Epoch-Zähler aus dem Checkpoint wiederhergestellt (thorsten-medium = 3135, thorsten-high = 2665). Für 2000 zusätzliche Epochen ab thorsten-medium: `5135`. Bei `--model.vocoder_warmstart_ckpt` startet der Zähler bei 0 — dort ist `2000` wirklich 2000. Default: `-1` (unendlich — Training läuft bis Ctrl+C). |
+| `--data.batch_size` | Default: `32`. Wird automatisch auch an `model.batch_size` gekoppelt. |
+| `--data.validation_split` | Default: `0.1` (10% des Datasets für Validierung). |
+| `--data.num_test_examples` | Default: `5`. Reserviert N Äußerungen für Audio-Sample-Generierung in TensorBoard. |
+| `--ckpt_path` | Checkpoint zum Fortsetzen/Finetunen. Architektur muss zum Modell passen (Medium-Checkpoint nur mit Medium-Parametern). |
+| `--data.config_path` | Hier schreibt das Training die `.onnx.json` Konfiguration hin — wird beim ONNX-Export gebraucht. |
+
+### Batch-Size-Empfehlung
+
+| GPU VRAM | Medium Quality | High Quality |
+|----------|---------------|--------------|
+| 8 GB | 8–12 | 4–8 |
+| 12 GB | 16–24 | 8–16 |
+| 24 GB (RTX 3090/4090) | **32–48** | **16–32** |
+| 48 GB (A6000) | 64 | 32–48 |
+
+High Quality benötigt mehr VRAM pro Sample (512 vs. 256 Kanäle im Upsample-Netz). Bei OOM die Batch-Size reduzieren.
 
 ### Training überwachen
 
 In einem zweiten Terminal:
 
 ```bash
-tensorboard --logdir /pfad/zu/output/lightning_logs
+tensorboard --logdir lightning_logs/
 # → http://localhost:6006 im Browser öffnen
 ```
 
-Dort sieht man Loss-Kurven und kann generierte Audio-Samples anhören. Die `"audio amplitude out of range, auto clipped"` Warnungen während des Trainings sind normal und harmlos.
+Dort sieht man Loss-Kurven und kann generierte Audio-Samples anhören.
 
-### Export nach ONNX
+### Training fortsetzen
+
+Da `--trainer.max_epochs` absolut ist, einfach mit höherem Wert neu starten. Lightning findet den letzten Checkpoint automatisch in `lightning_logs/`:
 
 ```bash
-python -m piper_train.export_onnx \
-  /pfad/zu/output/lightning_logs/version_X/checkpoints/epoch=XXXX-step=XXXXXXX.ckpt \
-  /pfad/zur/meine-stimme.onnx
+# Weitermachen bis Epoch 7135 (war vorher auf 5135 begrenzt)
+python -m piper.train fit \
+  ... (gleiche Parameter) \
+  --trainer.max_epochs 7135
+```
 
-# config.json als .onnx.json kopieren (wird von Piper zum Laden benötigt)
-cp /pfad/zu/output/config.json /pfad/zur/meine-stimme.onnx.json
+Alternativ `--trainer.max_epochs -1` für unbegrenztes Training (manuell mit Ctrl+C stoppen).
+
+---
+
+## 8. Training: Modell von Grund auf
+
+Gleicher Ablauf wie Finetuning, aber **ohne** `--ckpt_path`:
+
+```bash
+python -m piper.train fit \
+  --data.voice_name "de_DE-meinname-medium" \
+  --data.csv_path /pfad/zu/metadata_piper1.csv \
+  --data.audio_dir /pfad/zu/wavs/ \
+  --model.sample_rate 22050 \
+  --data.espeak_voice de \
+  --data.cache_dir /pfad/zu/mein-dataset/cache/ \
+  --data.config_path /pfad/zu/output/de_DE-meinname-medium.onnx.json \
+  --data.batch_size 32 \
+  --trainer.max_epochs 5000 \
+  --trainer.accelerator gpu \
+  --trainer.devices 1 \
+  --trainer.precision 32
+```
+
+Unterschiede zum Finetuning:
+
+- Deutlich mehr Daten nötig (mehrere Stunden)
+- Längere Trainingszeit (5000+ Epochen)
+- Für High Quality kann `--model.vocoder_warmstart_ckpt` genutzt werden — kopiert nur die Vocoder-Gewichte aus einem bestehenden Medium-Checkpoint, ohne die vollständige Architektur-Übereinstimmung zu verlangen
+
+---
+
+## 9. Medium vs. High Quality
+
+piper1-gpl hat **keinen `--quality`-Schalter**. Quality ergibt sich aus 6 Modell-Parametern, die die Vocoder-Architektur definieren:
+
+| Parameter | Medium (Default) | High |
+|-----------|-----------------|------|
+| `--model.resblock` | `"2"` | `"1"` |
+| `--model.resblock_kernel_sizes` | `[3, 5, 7]` | `[3, 7, 11]` |
+| `--model.resblock_dilation_sizes` | `[[1, 2], [2, 6], [3, 12]]` | `[[1, 3, 5], [1, 3, 5], [1, 3, 5]]` |
+| `--model.upsample_rates` | `[8, 8, 4]` | `[8, 8, 2, 2]` |
+| `--model.upsample_initial_channel` | `256` | `512` |
+| `--model.upsample_kernel_sizes` | `[16, 16, 8]` | `[16, 16, 4, 4]` |
+
+Medium lässt man weg (sind die Defaults). Für High müssen alle 6 Parameter explizit gesetzt werden.
+
+### High-Quality Finetuning
+
+**Problem:** Die Checkpoints auf HuggingFace sind Medium-Architektur. Ein Medium-Checkpoint kann nicht mit `--ckpt_path` in ein High-Quality-Training geladen werden (Shape-Mismatch: 256 vs. 512 Kanäle, 3 vs. 4 Upsample-Stufen).
+
+**Lösung:** `--model.vocoder_warmstart_ckpt` statt `--ckpt_path` verwenden. Das kopiert nur die Vocoder-Gewichte (shape-tolerant) und überspringt das Phonem-Embedding. Der Epoch-Zähler startet bei 0 — `--trainer.max_epochs 2000` sind hier wirklich 2000 Epochen:
+
+```bash
+python -m piper.train fit \
+  --data.voice_name "de_DE-meinname-high" \
+  --data.csv_path /pfad/zu/metadata_piper1.csv \
+  --data.audio_dir /pfad/zu/wavs/ \
+  --model.sample_rate 22050 \
+  --data.espeak_voice de \
+  --data.cache_dir /pfad/zu/mein-dataset/cache/ \
+  --data.config_path /pfad/zu/output/de_DE-meinname-high.onnx.json \
+  --data.batch_size 32 \
+  --trainer.max_epochs 2000 \
+  --trainer.accelerator gpu \
+  --trainer.devices 1 \
+  --trainer.precision 32 \
+  --model.resblock 1 \
+  --model.resblock_kernel_sizes '[3, 7, 11]' \
+  --model.resblock_dilation_sizes '[[1, 3, 5], [1, 3, 5], [1, 3, 5]]' \
+  --model.upsample_rates '[8, 8, 2, 2]' \
+  --model.upsample_initial_channel 512 \
+  --model.upsample_kernel_sizes '[16, 16, 4, 4]' \
+  --model.vocoder_warmstart_ckpt /pfad/zu/thorsten-medium.ckpt
+```
+
+### High-Quality Finetuning mit High-Checkpoint
+
+Falls ein High-Quality-Checkpoint vorliegt (z.B. `thorsten-high.ckpt`), kann `--ckpt_path` direkt verwendet werden — aber die High-Quality-Parameter **müssen trotzdem gesetzt werden**, da sie nicht aus dem Checkpoint gelesen werden. Hier wird der Epoch-Zähler wiederhergestellt (thorsten-high = 2665):
+
+```bash
+# thorsten-high steht bei Epoch 2665, +2000 eigene = 4665
+python -m piper.train fit \
+  ... (gleiche Parameter wie oben) \
+  --trainer.max_epochs 4665 \
+  --model.resblock 1 \
+  --model.resblock_kernel_sizes '[3, 7, 11]' \
+  --model.resblock_dilation_sizes '[[1, 3, 5], [1, 3, 5], [1, 3, 5]]' \
+  --model.upsample_rates '[8, 8, 2, 2]' \
+  --model.upsample_initial_channel 512 \
+  --model.upsample_kernel_sizes '[16, 16, 4, 4]' \
+  --ckpt_path /pfad/zu/thorsten-high.ckpt
+```
+
+### Wann Medium, wann High?
+
+| | Medium | High |
+|---|---|---|
+| **Audioqualität** | Gut | Besser, natürlicher |
+| **Modellgröße** | ~60 MB (ONNX) | ~80 MB (ONNX) |
+| **Inferenz-Geschwindigkeit** | Schneller | Langsamer |
+| **VRAM-Bedarf (Training)** | Weniger | ~2x mehr |
+| **Checkpoint-Verfügbarkeit** | Viele auf HuggingFace | Wenige, Warmstart nötig |
+| **Empfehlung** | Echtzeit-TTS, eingebettete Systeme | Maximale Sprachqualität |
+
+---
+
+## 10. ONNX-Export & die .onnx.json Konfiguration
+
+### Export
+
+```bash
+python -m piper.train.export_onnx \
+  --checkpoint lightning_logs/version_X/checkpoints/epoch=XXXX-step=XXXXXXX.ckpt \
+  --output-file /pfad/zu/de_DE-meinname-high.onnx
+```
+
+Die `.onnx.json` Konfiguration wurde bereits während des Trainings nach `--data.config_path` geschrieben. Sie muss neben die ONNX-Datei gelegt werden:
+
+```bash
+# Falls config_path nicht schon den richtigen Namen hat:
+cp /pfad/zu/output/de_DE-meinname-high.onnx.json /pfad/zu/de_DE-meinname-high.onnx.json
 ```
 
 Testen:
 
 ```bash
 echo "Hallo, das ist meine eigene Stimme!" | \
-  piper --model meine-stimme.onnx --output_file test.wav
+  piper --model de_DE-meinname-high.onnx --output_file test.wav
 ```
-
----
-
-## 7. Training: Modell von Grund auf
-
-Gleicher Ablauf wie Finetuning, aber **ohne** `--resume_from_checkpoint`:
-
-```bash
-python -m piper_train \
-  --dataset-dir /pfad/zu/output \
-  --accelerator gpu \
-  --devices 1 \
-  --batch-size 16 \
-  --validation-split 0.05 \
-  --max-epochs 5000 \
-  --precision 32
-```
-
-Unterschiede zum Finetuning:
-
-- Deutlich mehr Daten nötig (mehrere Stunden)
-- Längere Trainingszeit
-- Die `.onnx.json` wird automatisch beim ONNX-Export aus der `config.json` des Preprocessings generiert – muss nicht manuell erstellt werden
-
----
-
-## 8. ONNX-Export & die .onnx.json Konfiguration
 
 ### Was ist die .onnx.json?
 
@@ -506,7 +615,7 @@ Die `.onnx.json` ist die Konfigurationsdatei, die jedes Piper-Modell begleitet. 
 {
   "audio": {
     "sample_rate": 22050,
-    "quality": "medium"
+    "quality": "high"
   },
   "espeak": {
     "voice": "de"
@@ -524,18 +633,11 @@ Die `.onnx.json` ist die Konfigurationsdatei, die jedes Piper-Modell begleitet. 
 }
 ```
 
-### Woher kommt die Datei?
-
-| Methode | Quelle der .onnx.json |
-|---------|----------------------|
-| **Finetuning** | Vom Basis-Modell kopieren |
-| **Von Grund auf** | Wird automatisch beim ONNX-Export aus der `config.json` erzeugt |
-
-Die gesamte Pipeline (Preprocess → Train → Export) reicht die Konfiguration automatisch durch. Manuelle Anpassungen sind nur nötig, wenn man z.B. `length_scale` für schnelleres/langsameres Sprechen ändern will.
+Manuelle Anpassungen sind nur nötig, wenn man z.B. `length_scale` für schnelleres/langsameres Sprechen ändern will.
 
 ---
 
-## 9. Tipps für gute Ergebnisse
+## 11. Tipps für gute Ergebnisse
 
 ### Aufnahmequalität
 
@@ -548,20 +650,23 @@ Die gesamte Pipeline (Preprocess → Train → Export) reicht die Konfiguration 
 
 - **GPU**: NVIDIA mit mindestens 8 GB VRAM, Finetuning geht auch mit 6 GB bei kleiner Batch-Size
 - **Epochen**: Beim Finetuning reichen oft 500–2000 Epochen
+- **Batch-Size**: So groß wie möglich (VRAM-Limit), größere Batches stabilisieren das Training
 - **Regelmäßig Samples generieren** und anhören, um Über-/Untertraining zu erkennen
 - **Deutsche Modelle**: Als Basis für deutsches Finetuning den `thorsten`-Checkpoint verwenden
+- **TensorBoard** immer mitlaufen lassen zum Monitoring
 
 ---
 
-## 10. Nützliche Ressourcen
+## 12. Nützliche Ressourcen
 
 | Ressource | URL |
 |-----------|-----|
-| Piper GitHub | https://github.com/rhasspy/piper |
-| Piper Training Docs | https://github.com/rhasspy/piper/blob/master/TRAINING.md |
-| Piper Checkpoints | https://huggingface.co/rhasspy/piper-checkpoints |
+| Piper1-GPL GitHub (aktiv) | https://github.com/OHF-Voice/piper1-gpl |
+| Piper1-GPL Training Docs | https://github.com/OHF-Voice/piper1-gpl/blob/main/docs/TRAINING.md |
+| Piper Checkpoints | https://huggingface.co/datasets/rhasspy/piper-checkpoints |
 | Piper Recording Studio | https://github.com/rhasspy/piper-recording-studio |
 | EasyEffects | https://github.com/wwmm/easyeffects |
+| rhasspy/piper (archiviert) | https://github.com/rhasspy/piper |
 
 ---
 
@@ -573,6 +678,7 @@ Die gesamte Pipeline (Preprocess → Train → Export) reicht die Konfiguration 
 | `record_gui.py` | PySide6 GUI-Recorder mit VU-Meter, Wellenform, Fortschrittsbalken |
 | `record_dataset.py` | Alternatives Terminal-basiertes Aufnahme-Tool |
 | `piper-tts-recording.json` | EasyEffects Input-Preset für saubere Mikrofon-Aufnahmen |
+| `convert_metadata.py` | Konvertiert alte 3-Spalten metadata.csv ins neue 2-Spalten-Format (im piper1-gpl Repo) |
 
 ---
 
@@ -591,33 +697,37 @@ python record_gui.py --metadata metadata.csv --output ./wavs
 
 # 4. Alle 250 Sätze einsprechen (Leertaste halten = aufnehmen)
 
-# 5. Piper-Training vorbereiten
-git clone https://github.com/rhasspy/piper.git
-cd piper/src/python && pip install -e .
+# 5. piper1-gpl Training-Umgebung einrichten
+git clone https://github.com/OHF-Voice/piper1-gpl.git
+cd piper1-gpl
+./setup_my_env.sh
+source .venv/bin/activate
 
-# 6. Preprocessing
-python -m piper_train.preprocess \
-  --language de \
-  --input-dir /pfad/zu/mein-dataset \
-  --output-dir /pfad/zu/output \
-  --dataset-format ljspeech \
-  --sample-rate 22050
+# 6. metadata.csv konvertieren (falls altes 3-Spalten-Format)
+python convert_metadata.py /pfad/zu/metadata.csv -o /pfad/zu/metadata_piper1.csv
 
-# 7. Finetuning (mit vortrainiertem Checkpoint)
-python -m piper_train \
-  --dataset-dir /pfad/zu/output \
-  --accelerator gpu \
-  --devices 1 \
-  --batch-size 16 \
-  --max-epochs 1000 \
-  --resume_from_checkpoint /pfad/zum/checkpoint.ckpt
+# 7. Finetuning (Medium Quality, mit thorsten-Checkpoint)
+python -m piper.train fit \
+  --data.voice_name "de_DE-meinname-medium" \
+  --data.csv_path /pfad/zu/metadata_piper1.csv \
+  --data.audio_dir /pfad/zu/wavs/ \
+  --model.sample_rate 22050 \
+  --data.espeak_voice de \
+  --data.cache_dir /pfad/zu/mein-dataset/cache/ \
+  --data.config_path /pfad/zu/output/de_DE-meinname-medium.onnx.json \
+  --data.batch_size 32 \
+  --trainer.max_epochs 5135 \
+  --trainer.accelerator gpu \
+  --trainer.devices 1 \
+  --trainer.precision 32 \
+  --ckpt_path /pfad/zu/thorsten-medium.ckpt
 
 # 8. ONNX-Export
-python -m piper_train.export_onnx \
-  /pfad/zum/trainierten/checkpoint.ckpt \
-  /pfad/zur/meine-stimme.onnx
+python -m piper.train.export_onnx \
+  --checkpoint lightning_logs/version_0/checkpoints/best.ckpt \
+  --output-file /pfad/zu/de_DE-meinname-medium.onnx
 
 # 9. Testen
 echo "Hallo, das ist meine eigene Stimme!" | \
-  piper --model meine-stimme.onnx --output_file test.wav
+  piper --model de_DE-meinname-medium.onnx --output_file test.wav
 ```
