@@ -206,6 +206,10 @@ python record_gui.py --samplerate 44100 --device 3
 | `Enter` / `Return` | Advance to next sentence |
 | `P` | Play back the current recording |
 
+### Audio Device Selection
+
+![Audio device enumeration (sounddevice input/output devices)](../../Bildschirmfoto_2026-02-22_12-08-06.png)
+
 ### Architecture (GUI)
 
 **`RecordThread(QThread)`**

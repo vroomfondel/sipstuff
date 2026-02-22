@@ -512,6 +512,7 @@ class RecorderWindow(QMainWindow):
         self._init_ui()
         self._apply_dark_theme()
         self._update_stats()
+        self._center_on_screen()
 
         # Capture Space/Return/P globally so table focus doesn't swallow them
         QApplication.instance().installEventFilter(self)  # type: ignore[union-attr]
@@ -552,7 +553,7 @@ class RecorderWindow(QMainWindow):
         """Build and arrange all widgets: progress bar, sentence table, recording controls, and device selector."""
         self.setWindowTitle("Piper TTS Dataset Recorder")
         self.setMinimumSize(1000, 750)
-        self.resize(1200, 850)
+        self.resize(1600, 1024)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -677,6 +678,7 @@ class RecorderWindow(QMainWindow):
             "QPushButton:disabled { background-color: #553333; color: #888; }"
         )
         self.btn_record.setToolTip("Leertaste gedrückt halten zum Aufnehmen")
+        self.btn_record.clicked.connect(self._toggle_recording)
         btn_layout.addWidget(self.btn_record)
 
         self.btn_play = QPushButton("▶  Abspielen")
@@ -745,12 +747,14 @@ class RecorderWindow(QMainWindow):
 
         device_layout.addWidget(QLabel("Eingabegerät:"))
         self.input_device_combo = QComboBox()
+        self.input_device_combo.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._populate_input_devices()
         self.input_device_combo.currentIndexChanged.connect(self._on_input_device_changed)
         device_layout.addWidget(self.input_device_combo, stretch=1)
 
         device_layout.addWidget(QLabel("Ausgabegerät:"))
         self.output_device_combo = QComboBox()
+        self.output_device_combo.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._populate_output_devices()
         self.output_device_combo.currentIndexChanged.connect(self._on_output_device_changed)
         device_layout.addWidget(self.output_device_combo, stretch=1)
@@ -761,6 +765,17 @@ class RecorderWindow(QMainWindow):
         device_layout.addWidget(self.auto_play_checkbox)
 
         main_layout.addLayout(device_layout)
+
+    # ── Fenster zentrieren ──────────────────────────────────────────────
+
+    def _center_on_screen(self) -> None:
+        """Center the window on the primary screen."""
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            screen_geometry = screen.availableGeometry()
+            window_geometry = self.frameGeometry()
+            window_geometry.moveCenter(screen_geometry.center())
+            self.move(window_geometry.topLeft())
 
     # ── Dark Theme ──────────────────────────────────────────────────────
 
@@ -1025,11 +1040,19 @@ class RecorderWindow(QMainWindow):
 
     # ── Aufnahme ────────────────────────────────────────────────────────
 
+    def _toggle_recording(self) -> None:
+        """Toggle recording on/off (used by the record button click)."""
+        if self.is_recording:
+            self._stop_recording()
+        else:
+            self._start_recording()
+
     def _start_recording(self) -> None:
         """Start a new recording for the currently selected entry.
 
         No-op if a recording or playback is already in progress, or if no row is selected.
-        Creates and starts a RecordThread connected to the VU meter and the finished callback.
+        Sets UI state immediately, then starts the actual audio stream after a 100ms delay
+        to avoid capturing click/key noise.
         """
         if self.is_recording or self.is_playing:
             return
@@ -1038,11 +1061,20 @@ class RecorderWindow(QMainWindow):
 
         self.is_recording = True
         self.status_indicator.set_status("recording")
-        self.btn_record.setText("⏺  Aufnahme läuft...")
-        self.btn_record.setEnabled(False)
+        self.btn_record.setText("■  Aufnahme stoppen")
         self.btn_play.setEnabled(False)
         self.btn_next.setEnabled(False)
         self.waveform.clear()
+
+        QTimer.singleShot(100, self._start_record_stream)
+
+    def _start_record_stream(self) -> None:
+        """Create and start the RecordThread after the delay.
+
+        Guards against the case where the user released Space within the 100ms delay.
+        """
+        if not self.is_recording:
+            return
 
         self.record_thread = RecordThread(
             samplerate=self.samplerate,
@@ -1054,11 +1086,21 @@ class RecorderWindow(QMainWindow):
         self.record_thread.start()
 
     def _stop_recording(self) -> None:
-        """Stop the active recording thread if one is running."""
+        """Stop the active recording thread if one is running.
+
+        If called before the delayed stream start, resets UI state directly
+        since no RecordThread exists to emit finished_recording.
+        """
         if not self.is_recording:
             return
-        if self.record_thread:
+        if self.record_thread and self.record_thread.isRunning():
             self.record_thread.stop()
+        else:
+            # Stream not yet started (within the 100ms delay) — reset UI directly
+            self.is_recording = False
+            self.btn_record.setText("⏺  Aufnehmen")
+            self.btn_next.setEnabled(True)
+            self.status_indicator.set_status("idle")
 
     def _on_recording_finished(self, audio: np.ndarray) -> None:
         """Slot: handle the completed recording, save it to disk, and update the UI.

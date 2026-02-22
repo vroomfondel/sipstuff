@@ -1043,7 +1043,9 @@ Non-standard formats (stereo, different bit depths/rates) will produce warnings 
 | `autoanswer/` | Callee auto-answer implementation (integrated as `callee_autoanswer` CLI subcommand) |
 | `realtime/` | Callee real-time TTS implementation (integrated as `callee_realtime-tts` CLI subcommand) |
 | `transcribe/` | Callee live-transcribe implementation (integrated as `callee_live-transcribe` CLI subcommand) |
-| `training/` | Voice training utilities: `record_dataset.py`, `record_gui.py` (standalone, not in CLI) |
+| `training/` | Voice training utilities: `record_dataset.py`, `record_gui.py` (standalone, not in CLI) — see [training README](sipstuff/training/README.md) |
+
+![Audio device enumeration (sounddevice input/output devices)](Bildschirmfoto_2026-02-22_12-08-06.png)
 | `cli.py` | CLI entry point with six subcommands |
 | `example_config.yaml` | Sample configuration file |
 | `dist_scripts/install_pjsip.sh` | Build script for PJSIP with Python bindings (default: 2.16) |
