@@ -8,12 +8,18 @@ Provides functions and classes for:
 - Inspecting WAV file metadata (``WavInfo``).
 - Writing PCM frames to a WAV file in a thread-safe manner (``WavRecorder``).
 - Voice-activity-detection buffering for chunked live transcription (``VADAudioBuffer``).
+- Streaming playback of queued PCM chunks via sounddevice (``SounddeviceQueuePlayer``).
 """
 
 import struct
 import threading
 import wave
 from pathlib import Path
+from queue import Empty, Queue
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import sounddevice
 
 import numpy as np
 import numpy.typing as npt
@@ -86,6 +92,56 @@ def play_wav(wav_path: str | Path, audio_device: int | str | None = None) -> Non
         finished.wait()
 
     log.info(f"Played {wav_path.name} ({len(data) / samplerate:.1f}s)")
+
+
+def play_audio_data(
+    data: npt.NDArray[np.float32],
+    sample_rate: int,
+    audio_device: int | str | None = None,
+) -> None:
+    """Play a numpy float32 audio array through speakers using sounddevice.
+
+    Args:
+        data: 1-D or 2-D float32 audio array (mono or multi-channel).
+        sample_rate: Sample rate in Hz.
+        audio_device: Sounddevice output device index (int) or name substring.
+            ``None`` uses the system default output device.
+
+    Raises:
+        ImportError: If ``sounddevice`` is not installed.
+    """
+    import sounddevice as sd
+
+    # Ensure 2-D array (mono arrays come as 1-D)
+    if data.ndim == 1:
+        data = data.reshape(-1, 1)
+
+    finished = threading.Event()
+    position = 0
+
+    def callback(outdata: np.ndarray, frames: int, time_info: object, status: sd.CallbackFlags) -> None:
+        nonlocal position
+        end = position + frames
+        chunk = data[position:end]
+        if len(chunk) < frames:
+            outdata[: len(chunk)] = chunk
+            outdata[len(chunk) :] = 0
+            finished.set()
+            raise sd.CallbackStop
+        outdata[:] = chunk
+        position = end
+
+    stream = sd.OutputStream(
+        samplerate=sample_rate,
+        channels=data.shape[1],
+        dtype="float32",
+        callback=callback,
+        device=audio_device,
+    )
+    with stream:
+        finished.wait()
+
+    log.info(f"Played audio ({len(data) / sample_rate:.1f}s)")
 
 
 def resample_linear(samples: npt.NDArray[np.floating], source_rate: int, target_rate: int) -> npt.NDArray[np.float32]:
@@ -554,3 +610,74 @@ class VADAudioBuffer:
                 self.buffer = np.array([], dtype=np.float32)
                 return (chunk, chunk_start, chunk_end)
         return None
+
+
+class SounddeviceQueuePlayer:
+    """Plays PCM audio chunks from a ``Queue[bytes]`` through speakers via sounddevice.
+
+    Designed as the standalone consumer counterpart to ``PiperTTSProducer``:
+    the producer enqueues 20 ms PCM chunks (int16, 16 kHz, mono) and this
+    player drains them in a sounddevice callback, converting to float32 for
+    output.  The ``b"__EOS__"`` sentinel is silently consumed (outputs silence
+    for that frame).
+
+    Usage::
+
+        player = SounddeviceQueuePlayer(audio_queue)
+        player.start()
+        # ... producer feeds audio_queue ...
+        player.stop()
+    """
+
+    def __init__(
+        self,
+        audio_queue: Queue[bytes],
+        sample_rate: int = 16000,
+        samples_per_frame: int = 320,
+        audio_device: int | str | None = None,
+    ) -> None:
+        self._queue = audio_queue
+        self._sample_rate = sample_rate
+        self._samples_per_frame = samples_per_frame
+        self._audio_device = audio_device
+        self._stream: sounddevice.OutputStream | None = None
+        self._log = logger.bind(classname="SounddeviceQueuePlayer")
+
+    def start(self) -> None:
+        """Open and start the sounddevice OutputStream."""
+        import sounddevice as sd
+
+        self._stream = sd.OutputStream(
+            samplerate=self._sample_rate,
+            channels=1,
+            dtype="float32",
+            blocksize=self._samples_per_frame,
+            callback=self._callback,
+            device=self._audio_device,
+        )
+        self._stream.start()
+        self._log.info(f"Sounddevice player started (rate={self._sample_rate}, device={self._audio_device})")
+
+    def stop(self) -> None:
+        """Stop and close the sounddevice OutputStream."""
+        if self._stream is not None:
+            self._stream.stop()
+            self._stream.close()
+            self._stream = None
+            self._log.info("Sounddevice player stopped")
+
+    def _callback(self, outdata: np.ndarray, frames: int, time_info: object, status: object) -> None:
+        """Sounddevice output-stream callback; drains one chunk from the queue per call."""
+        try:
+            chunk = self._queue.get_nowait()
+            if chunk == b"__EOS__":
+                outdata[:] = 0.0
+                return
+            samples = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32768.0
+            if len(samples) < frames:
+                outdata[: len(samples), 0] = samples
+                outdata[len(samples) :] = 0.0
+            else:
+                outdata[:, 0] = samples[:frames]
+        except Empty:
+            outdata[:] = 0.0

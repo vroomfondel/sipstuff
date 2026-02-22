@@ -13,6 +13,9 @@ sounddevice
 
 piper-tts>=1.4.0
 
+# Optional CUDA runtime libs for piper-tts (x86_64 only)
+# onnxruntime-gpu
+
 # Optional: CUDA runtime libs for faster-whisper GPU inference — install with: pip install sipstuff[cuda]
 # nvidia-cublas-cu12
 # nvidia-cudnn-cu12

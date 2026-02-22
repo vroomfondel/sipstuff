@@ -49,13 +49,14 @@ dependencies = [
     'sounddevice',
     'numpy',
     'faster-whisper',
-    'piper-tts>=1.4.0',
+    'piper-tts>=1.4.0'
 ]
 
 [project.optional-dependencies]
 cuda = [
     'nvidia-cublas-cu12',
     'nvidia-cudnn-cu12',
+    # onnxruntime-gpu: x86_64 only, install separately: pip install onnxruntime-gpu
 ]
 openvino = [
     'optimum-intel[openvino]',

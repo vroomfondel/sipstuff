@@ -114,6 +114,13 @@ ARG install_cuda=false
 RUN if [ "$install_cuda" = "true" ]; then \
     runuser -u ${UNAME} -- env PATH="/home/${UNAME}/.local/bin:$PATH" \
         pip install --no-cache-dir nvidia-cublas-cu12 nvidia-cudnn-cu12 && \
+    if [ "$(uname -m)" = "x86_64" ]; then \
+        runuser -u ${UNAME} -- env PATH="/home/${UNAME}/.local/bin:$PATH" \
+            pip install --no-cache-dir onnxruntime-gpu && \
+        echo "onnxruntime-gpu installed (x86_64)"; \
+    else \
+        echo "SKIP onnxruntime-gpu — not available for $(uname -m), using CPU onnxruntime"; \
+    fi && \
     python3 -c "\
 import subprocess, pathlib;\
 res = subprocess.run(['find', '/home', '-path', '*/nvidia/*/lib', '-type', 'd'], capture_output=True, text=True);\

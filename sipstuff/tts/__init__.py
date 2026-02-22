@@ -8,7 +8,7 @@ from sipstuff.tts.live import (
     PiperTTSProducer,
     TTSMediaPort,
 )
-from sipstuff.tts.tts import TtsError, TtsModelInfo, clear_tts_cache, generate_wav, load_tts_model
+from sipstuff.tts.tts import TtsError, TtsModelInfo, clear_tts_cache, generate_wav, load_tts_model, synthesize_audio
 
 __all__ = [
     "BITS_PER_SAMPLE",
@@ -22,4 +22,5 @@ __all__ = [
     "clear_tts_cache",
     "generate_wav",
     "load_tts_model",
+    "synthesize_audio",
 ]

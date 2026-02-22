@@ -340,7 +340,7 @@ def parse_args() -> argparse.Namespace:
 
     # ── tts subcommand ──────────────────────────────────────────────
     tts_parser = sub.add_parser("tts", help="Generate a WAV file from text using piper TTS")
-    tts_parser.add_argument("text", help="Text to synthesize")
+    tts_parser.add_argument("text", nargs="?", default=None, help="Text to synthesize")
     tts_parser.add_argument("--output", "-o", default=None, help="Output WAV file path")
     tts_parser.add_argument(
         "--model", "-m", default="de_DE-thorsten-high", help="Piper voice model (default: de_DE-thorsten-high)"
@@ -364,7 +364,21 @@ def parse_args() -> argparse.Namespace:
         "--audio-device",
         dest="audio_device",
         default=None,
-        help="Sounddevice output device index (int) or name substring for --play-audio (default: system default)",
+        help="Sounddevice output device index (int) or name substring for --play-audio / --interactive (default: system default)",
+    )
+    tts_parser.add_argument(
+        "--interactive",
+        "-i",
+        action="store_true",
+        default=False,
+        help="Interactive mode: type text and hear it spoken in real-time via speakers (requires sounddevice)",
+    )
+    tts_parser.add_argument(
+        "--tts-cuda",
+        dest="tts_cuda",
+        action="store_true",
+        default=False,
+        help="Use CUDA GPU acceleration for Piper TTS",
     )
     tts_parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging (DEBUG level)")
 
@@ -762,6 +776,9 @@ def cmd_tts(args: argparse.Namespace) -> int:
     """Execute the ``tts`` subcommand.
 
     Generates a WAV file from text using piper TTS, optionally plays it.
+    When ``--play-audio`` is used without ``-o``, synthesis happens entirely
+    in memory — no temporary file is created.  When ``--interactive`` is used,
+    enters a REPL where typed text is spoken through speakers in real-time.
 
     Args:
         args: Parsed CLI arguments.
@@ -769,51 +786,98 @@ def cmd_tts(args: argparse.Namespace) -> int:
     Returns:
         Exit code: 0 on success, 1 on failure.
     """
-    import tempfile
+    from sipstuff.tts import TtsError
 
-    from sipstuff.tts import TtsError, generate_wav
+    _audio_device: int | str | None = None
+    if args.audio_device is not None:
+        try:
+            _audio_device = int(args.audio_device)
+        except ValueError:
+            _audio_device = args.audio_device
+
+    # ── Interactive mode ───────────────────────────────────────────
+    if args.interactive:
+        from sipstuff.audio import SounddeviceQueuePlayer
+        from sipstuff.sipconfig import TtsConfig
+        from sipstuff.tts.live import PiperTTSProducer, interactive_console
+        from sipstuff.tts.tts import load_tts_model
+
+        try:
+            info = load_tts_model(TtsConfig(model=args.model, data_dir=args.tts_data_dir, use_cuda=args.tts_cuda))
+        except TtsError as exc:
+            logger.error(f"TTS model load failed: {exc}")
+            return 1
+
+        audio_queue: Queue[bytes] = Queue(maxsize=500)
+        producer = PiperTTSProducer(
+            model_path="",
+            audio_queue=audio_queue,
+            target_rate=16000,
+            tts_model_info=info,
+        )
+        producer.start()
+        player = SounddeviceQueuePlayer(audio_queue, audio_device=_audio_device)
+        player.start()
+        try:
+            if args.text:
+                producer.speak(args.text)
+            interactive_console(producer)
+        finally:
+            player.stop()
+            producer.stop()
+        return 0
+
+    # ── Non-interactive: text is required ──────────────────────────
+    if not args.text:
+        logger.error("Provide text, -o/--output, and/or --play-audio")
+        return 1
 
     if not args.output and not args.play_audio:
         logger.error("Provide -o/--output and/or --play-audio")
         return 1
 
-    use_temp = args.output is None
-    if use_temp:
-        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".wav")
-        os.close(tmp_fd)
-        output_path = tmp_path
-    else:
-        output_path = args.output
+    # Memory-only path: synthesize → play directly, no temp file
+    if args.play_audio and not args.output:
+        from sipstuff.audio import play_audio_data
+        from sipstuff.tts.tts import synthesize_audio
+
+        try:
+            data, rate = synthesize_audio(
+                text=args.text,
+                model=args.model,
+                sample_rate=args.sample_rate,
+                data_dir=args.tts_data_dir,
+                use_cuda=args.tts_cuda,
+            )
+            play_audio_data(data, rate, audio_device=_audio_device)
+            return 0
+        except TtsError as exc:
+            logger.error(f"TTS failed: {exc}")
+            return 1
+
+    # File path (with or without --play-audio)
+    from sipstuff.tts import generate_wav
 
     try:
         result_path = generate_wav(
             text=args.text,
             model=args.model,
-            output_path=output_path,
+            output_path=args.output,
             sample_rate=args.sample_rate,
             data_dir=args.tts_data_dir,
+            use_cuda=args.tts_cuda,
         )
         logger.info(f"WAV written to {result_path}")
 
         if args.play_audio:
             from sipstuff.audio import play_wav
 
-            _audio_device: int | str | None = None
-            if args.audio_device is not None:
-                try:
-                    _audio_device = int(args.audio_device)
-                except ValueError:
-                    _audio_device = args.audio_device
             play_wav(result_path, audio_device=_audio_device)
 
         return 0
     except TtsError as exc:
         logger.error(f"TTS failed: {exc}")
         return 1
-    finally:
-        if use_temp and os.path.isfile(output_path):
-            os.unlink(output_path)
-            logger.debug(f"Cleaned up temp file {output_path}")
 
 
 def cmd_stt(args: argparse.Namespace) -> int:
