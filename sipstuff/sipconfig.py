@@ -103,6 +103,7 @@ class TtsConfig(BaseModel):
     model: str = Field(default="de_DE-thorsten-high", description="Piper voice model name")
     sample_rate: int = Field(default=0, ge=0, le=48000, description="Resample to this rate (0 = keep native)")
     data_dir: str | None = Field(default=None, description="Piper voice model directory (None = default)")
+    use_cuda: bool = Field(default=False, description="Use CUDA GPU acceleration for Piper TTS")
     # TODO: add "live"-parameter for using tts/live.py
     # make tts/live.py use this TtsConfig -> extend config if need be
     # TODO: check if defining here if "stream" creation of speach or creating wav-file ?!
@@ -556,6 +557,7 @@ class SipEndpointConfig(BaseModel):
             "SIP_VAD_MIN_CHUNK": ("vad", "min_chunk"),
             "SIP_LIVE_TRANSCRIBE": ("stt", "live_transcribe"),
             "SIP_STT_DATA_DIR": ("stt", "data_dir"),
+            "SIP_TTS_CUDA": ("tts", "use_cuda"),
             "SIP_TTS_DATA_DIR": ("tts", "data_dir"),
             "SIP_AUTO_ANSWER": ("callee", "auto_answer"),
             "SIP_ANSWER_DELAY": ("callee", "answer_delay"),
@@ -604,6 +606,8 @@ class SipEndpointConfig(BaseModel):
                     data.setdefault("tts", {})["sample_rate"] = val
                 elif key == "live_transcribe":
                     data.setdefault("stt", {})[key] = val
+                elif key == "tts_cuda":
+                    data.setdefault("tts", {})["use_cuda"] = val
                 elif key == "tts_data_dir":
                     data.setdefault("tts", {})["data_dir"] = val
                 elif key == "stt_data_dir":

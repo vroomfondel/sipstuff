@@ -142,6 +142,139 @@ def _add_logging_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_stt_args(parser: argparse.ArgumentParser) -> None:
+    """Add STT arguments shared by callee subcommands with transcription.
+
+    Args:
+        parser: The argparse parser (or subparser) to augment.
+    """
+    parser.add_argument(
+        "--stt-backend",
+        "--backend",
+        dest="stt_backend",
+        choices=["faster-whisper", "openvino"],
+        default="faster-whisper",
+        help="STT backend engine (default: faster-whisper)",
+    )
+    parser.add_argument(
+        "--stt-model",
+        "--whisper-model",
+        dest="whisper_model",
+        default="base",
+        help="Whisper model size or HuggingFace model ID (default: base)",
+    )
+    parser.add_argument(
+        "--stt-live-model",
+        dest="stt_live_model",
+        default=None,
+        help="Whisper model for live transcription (default: same as --stt-model). "
+        "Use a smaller model (e.g. 'base') for faster startup.",
+    )
+    parser.add_argument(
+        "--stt-device",
+        "--device",
+        dest="device",
+        default="cpu",
+        choices=["cpu", "cuda"],
+        help="Compute device (default: cpu)",
+    )
+    parser.add_argument(
+        "--stt-language", "--language", dest="language", default=None, help="Force language, e.g. 'de', 'en'"
+    )
+    parser.add_argument(
+        "--stt-data-dir",
+        dest="stt_data_dir",
+        help="Model cache directory for Whisper STT models",
+    )
+
+
+def _add_vad_args(parser: argparse.ArgumentParser) -> None:
+    """Add VAD / chunking arguments shared by callee subcommands with transcription.
+
+    Args:
+        parser: The argparse parser (or subparser) to augment.
+    """
+    parser.add_argument(
+        "--vad-silence-threshold",
+        "--silence-threshold",
+        dest="vad_silence_threshold",
+        type=float,
+        default=0.01,
+        help="RMS silence threshold (default: 0.01)",
+    )
+    parser.add_argument(
+        "--vad-silence-trigger",
+        "--silence-trigger",
+        dest="vad_silence_trigger",
+        type=float,
+        default=0.3,
+        help="Seconds of silence to trigger transcription (default: 0.3)",
+    )
+    parser.add_argument(
+        "--vad-max-chunk",
+        "--max-chunk",
+        dest="vad_max_chunk",
+        type=float,
+        default=5.0,
+        help="Max seconds per chunk (default: 5.0)",
+    )
+    parser.add_argument(
+        "--vad-min-chunk",
+        "--min-chunk",
+        dest="vad_min_chunk",
+        type=float,
+        default=0.5,
+        help="Min seconds per chunk (default: 0.5)",
+    )
+
+
+def _add_recording_args(parser: argparse.ArgumentParser) -> None:
+    """Add recording arguments shared by callee subcommands with transcription.
+
+    Args:
+        parser: The argparse parser (or subparser) to augment.
+    """
+    parser.add_argument("--wav-output", dest="wav_output", default=None, help="Path for RX WAV recording")
+    parser.add_argument(
+        "--wav-dir", dest="wav_dir", default="..", help="Directory for WAV files (default: parent directory)"
+    )
+    parser.add_argument("--wav-output-tx", dest="wav_output_tx", default=None, help="Path for TX WAV recording")
+    parser.add_argument("--no-wav", dest="no_wav", action="store_true", help="Do not save WAV recording")
+    parser.add_argument(
+        "--transcribe",
+        action="store_true",
+        default=False,
+        help="Transcribe full RX recording after call and write JSON report",
+    )
+
+
+def _add_audio_stream_args(parser: argparse.ArgumentParser) -> None:
+    """Add audio output sink arguments shared by callee subcommands.
+
+    Args:
+        parser: The argparse parser (or subparser) to augment.
+    """
+    parser.add_argument(
+        "--audio-socket",
+        dest="audio_socket",
+        default=None,
+        help="Unix socket path for live audio streaming (PCM 16kHz)",
+    )
+    parser.add_argument(
+        "--play-audio",
+        dest="play_audio",
+        action="store_true",
+        default=False,
+        help="Play remote-party audio on local sound device via sounddevice",
+    )
+    parser.add_argument(
+        "--audio-device",
+        dest="audio_device",
+        default=None,
+        help="Sounddevice output device index or name substring for --play-audio",
+    )
+
+
 # ── Shared override builder ───────────────────────────────────────────
 
 
@@ -296,6 +429,13 @@ def parse_args() -> argparse.Namespace:
         "--tts-data-dir",
         dest="tts_data_dir",
         help="Directory for piper voice models (default: ~/.local/share/piper-voices)",
+    )
+    call_parser.add_argument(
+        "--tts-cuda",
+        dest="tts_cuda",
+        action="store_true",
+        default=False,
+        help="Use CUDA GPU acceleration for Piper TTS",
     )
 
     # Call parameters
@@ -489,6 +629,13 @@ def parse_args() -> argparse.Namespace:
         help="Piper TTS model name (default: de_DE-thorsten-high)",
     )
     aa_parser.add_argument("--tts-data-dir", dest="tts_data_dir", default=None, help="Piper data directory")
+    aa_parser.add_argument(
+        "--tts-cuda",
+        dest="tts_cuda",
+        action="store_true",
+        default=False,
+        help="Use CUDA GPU acceleration for Piper TTS",
+    )
     aa_parser.add_argument("--start-wav", dest="start_wav", help="WAV file to play at the start of the call")
     aa_parser.add_argument("--end-wav", dest="end_wav", help="WAV file to play at the end of the call (before hangup)")
     aa_parser.add_argument(
@@ -538,6 +685,13 @@ def parse_args() -> argparse.Namespace:
         help="Path to Piper .onnx model (default: ./de_DE-thorsten-high.onnx)",
     )
     rt_parser.add_argument(
+        "--tts-cuda",
+        dest="tts_cuda",
+        action="store_true",
+        default=False,
+        help="Use CUDA GPU acceleration for Piper TTS",
+    )
+    rt_parser.add_argument(
         "--answer-delay",
         dest="answer_delay",
         type=float,
@@ -554,6 +708,11 @@ def parse_args() -> argparse.Namespace:
     rt_playback.add_argument(
         "--play-delay", dest="play_delay", type=float, default=0.0, help="Seconds to wait before playback (default: 0)"
     )
+
+    _add_stt_args(rt_parser)
+    _add_vad_args(rt_parser)
+    _add_recording_args(rt_parser)
+    _add_audio_stream_args(rt_parser)
 
     # ── callee_live-transcribe subcommand ─────────────────────────
     lt_parser = sub.add_parser("callee_live-transcribe", help="Auto-answer incoming calls with live transcription")
@@ -572,93 +731,9 @@ def parse_args() -> argparse.Namespace:
         "--no-auto-answer", dest="no_auto_answer", action="store_true", help="Do NOT auto-answer calls"
     )
 
-    # STT (unified naming with call subcommand)
-    lt_parser.add_argument(
-        "--stt-backend",
-        "--backend",
-        dest="stt_backend",
-        choices=["faster-whisper", "openvino"],
-        default="faster-whisper",
-        help="STT backend engine (default: faster-whisper)",
-    )
-    lt_parser.add_argument(
-        "--stt-model",
-        "--whisper-model",
-        dest="whisper_model",
-        default="base",
-        help="Whisper model size or HuggingFace model ID (default: base)",
-    )
-    lt_parser.add_argument(
-        "--stt-live-model",
-        dest="stt_live_model",
-        default=None,
-        help="Whisper model for live transcription (default: same as --stt-model). "
-        "Use a smaller model (e.g. 'base') for faster startup.",
-    )
-    lt_parser.add_argument(
-        "--stt-device",
-        "--device",
-        dest="device",
-        default="cpu",
-        choices=["cpu", "cuda"],
-        help="Compute device (default: cpu)",
-    )
-    lt_parser.add_argument(
-        "--stt-language", "--language", dest="language", default=None, help="Force language, e.g. 'de', 'en'"
-    )
-    lt_parser.add_argument(
-        "--stt-data-dir",
-        dest="stt_data_dir",
-        help="Model cache directory for Whisper STT models",
-    )
-
-    # VAD / Chunking (unified naming with call subcommand)
-    lt_parser.add_argument(
-        "--vad-silence-threshold",
-        "--silence-threshold",
-        dest="vad_silence_threshold",
-        type=float,
-        default=0.01,
-        help="RMS silence threshold (default: 0.01)",
-    )
-    lt_parser.add_argument(
-        "--vad-silence-trigger",
-        "--silence-trigger",
-        dest="vad_silence_trigger",
-        type=float,
-        default=0.3,
-        help="Seconds of silence to trigger transcription (default: 0.3)",
-    )
-    lt_parser.add_argument(
-        "--vad-max-chunk",
-        "--max-chunk",
-        dest="vad_max_chunk",
-        type=float,
-        default=5.0,
-        help="Max seconds per chunk (default: 5.0)",
-    )
-    lt_parser.add_argument(
-        "--vad-min-chunk",
-        "--min-chunk",
-        dest="vad_min_chunk",
-        type=float,
-        default=0.5,
-        help="Min seconds per chunk (default: 0.5)",
-    )
-
-    # Recording
-    lt_parser.add_argument("--wav-output", dest="wav_output", default=None, help="Path for RX WAV recording")
-    lt_parser.add_argument(
-        "--wav-dir", dest="wav_dir", default="..", help="Directory for WAV files (default: parent directory)"
-    )
-    lt_parser.add_argument("--wav-output-tx", dest="wav_output_tx", default=None, help="Path for TX WAV recording")
-    lt_parser.add_argument("--no-wav", dest="no_wav", action="store_true", help="Do not save WAV recording")
-    lt_parser.add_argument(
-        "--transcribe",
-        action="store_true",
-        default=False,
-        help="Transcribe full RX recording after call and write JSON report",
-    )
+    _add_stt_args(lt_parser)
+    _add_vad_args(lt_parser)
+    _add_recording_args(lt_parser)
 
     # Playback
     lt_playback = lt_parser.add_argument_group("Playback at call start")
@@ -675,26 +750,7 @@ def parse_args() -> argparse.Namespace:
         "--play-delay", dest="play_delay", type=float, default=0.0, help="Seconds to wait before playback (default: 0)"
     )
 
-    # Audio output sinks
-    lt_parser.add_argument(
-        "--audio-socket",
-        dest="audio_socket",
-        default=None,
-        help="Unix socket path for live audio streaming (PCM 16kHz)",
-    )
-    lt_parser.add_argument(
-        "--play-audio",
-        dest="play_audio",
-        action="store_true",
-        default=False,
-        help="Play remote-party audio on local sound device via sounddevice",
-    )
-    lt_parser.add_argument(
-        "--audio-device",
-        dest="audio_device",
-        default=None,
-        help="Sounddevice output device index or name substring for --play-audio",
-    )
+    _add_audio_stream_args(lt_parser)
 
     return parser.parse_args()
 
@@ -828,6 +884,9 @@ def cmd_call(args: argparse.Namespace) -> int:
         if val is not None:
             overrides[key] = val
 
+    if getattr(args, "tts_cuda", False):
+        overrides["tts_cuda"] = True
+
     tts_data_dir = getattr(args, "tts_data_dir", None)
     if tts_data_dir is not None:
         overrides["tts_data_dir"] = tts_data_dir
@@ -922,6 +981,7 @@ def cmd_call(args: argparse.Namespace) -> int:
             model_path=args.piper_model,
             audio_queue=_audio_queue,
             target_rate=CLOCK_RATE,
+            use_cuda=config.tts.use_cuda,
         )
         _tts_producer.start()
 
@@ -1067,7 +1127,12 @@ def cmd_callee_autoanswer(args: argparse.Namespace) -> int:
         if not args.tts_text:
             logger.error("--tts-text is required with --mode tts")
             return 1
-        tts_cfg = TtsConfig(model=args.piper_model, sample_rate=16000, data_dir=getattr(args, "tts_data_dir", None))
+        tts_cfg = TtsConfig(
+            model=args.piper_model,
+            sample_rate=16000,
+            data_dir=getattr(args, "tts_data_dir", None),
+            use_cuda=args.tts_cuda,
+        )
         segments.append(
             TtsPlayConfig(tts_text=args.tts_text, tts_config=tts_cfg, pause_before=args.pause_before_content)
         )
@@ -1111,6 +1176,8 @@ def cmd_callee_realtime_tts(args: argparse.Namespace) -> int:
     """Execute the ``callee_realtime-tts`` subcommand.
 
     Auto-answers incoming SIP calls with real-time Piper TTS audio.
+    Optionally live-transcribes the remote party's speech, records
+    RX/TX audio, and writes a JSON call report.
 
     Args:
         args: Parsed CLI arguments.
@@ -1150,8 +1217,98 @@ def cmd_callee_realtime_tts(args: argparse.Namespace) -> int:
         model_path=args.piper_model,
         audio_queue=audio_queue,
         target_rate=CLOCK_RATE,
+        use_cuda=args.tts_cuda,
     )
     tts_producer.start()
+
+    # --- STT / VAD config (optional — all args have defaults from helpers) ---
+    vad_cfg = VadConfig(
+        silence_threshold=args.vad_silence_threshold,
+        silence_trigger=args.vad_silence_trigger,
+        max_chunk=args.vad_max_chunk,
+        min_chunk=args.vad_min_chunk,
+    )
+    stt_cfg = SttConfig(
+        backend=args.stt_backend,
+        model=args.whisper_model,
+        device=args.device,
+        language=args.language,
+        data_dir=getattr(args, "stt_data_dir", None),
+    )
+    live_model_name = args.stt_live_model or args.whisper_model
+    stt_live_cfg = (
+        stt_cfg.model_copy(update={"model": live_model_name}) if live_model_name != args.whisper_model else stt_cfg
+    )
+
+    # Pre-load live STT model at startup (avoids per-call load delay)
+    stt_model = None
+    _has_stt = getattr(args, "whisper_model", None) is not None
+    if _has_stt:
+        from sipstuff.stt import load_stt_model
+
+        stt_model = load_stt_model(stt_live_cfg)
+
+    # --- Per-call transcription callback ---
+    def _on_call_ended(call: SipCalleeRealtimeTtsCall) -> None:
+        """Handle post-call cleanup: stop live STT, transcribe recording, write JSON report."""
+        call_stt = call.call_stt
+        if call_stt is not None:
+            call_stt.stop()
+            call_stt.join(timeout=10)
+            live_segments = list(call_stt.segments)
+        else:
+            live_segments = []
+
+        if not args.transcribe:
+            return
+        wav_path_rx = call._wav_recorder_rx.filepath if call._wav_recorder_rx else None
+        tx_path = call._wav_recorder_tx.filepath if call._wav_recorder_tx else None
+        if not wav_path_rx or not os.path.isfile(wav_path_rx):
+            return
+
+        from sipstuff.stt import SttError, transcribe_wav
+
+        transcript_text: str | None = None
+        stt_meta: dict[str, object] = {}
+        try:
+            transcript_text, stt_meta = transcribe_wav(
+                wav_path_rx,
+                model=stt_cfg.model,
+                language=stt_cfg.language or "de",
+                device=stt_cfg.device,
+                compute_type=stt_cfg.compute_type,
+                data_dir=stt_cfg.data_dir,
+                backend=stt_cfg.backend,
+            )
+            logger.info(f"Transcript: {transcript_text}")
+        except SttError as exc:
+            logger.error(f"STT transcription failed: {exc}")
+
+        report: dict[str, object] = {
+            "timestamp": datetime.now(timezone.utc).astimezone().isoformat(),
+            "direction": "incoming",
+            "call_tracking_id": call.call_tracking_id,
+            "record_path_rx": wav_path_rx,
+            "record_path_tx": tx_path,
+            "call_duration": (
+                (call.call_end_time - call.call_start_time) if call.call_start_time and call.call_end_time else None
+            ),
+            "tts_text": args.tts_text,
+            "recording_duration": stt_meta.get("audio_duration"),
+            "transcript": transcript_text,
+            "stt": {"model": stt_cfg.model, "live_model": stt_live_cfg.model, **stt_meta},
+            "live_transcript": live_segments,
+        }
+
+        report_json = json.dumps(report, indent=2, ensure_ascii=False)
+        report_path = Path(wav_path_rx).with_suffix(".json")
+        report_path.write_text(report_json)
+        logger.info(f"Call report written to {report_path}")
+        logger.opt(raw=True).info(
+            "\n{border}\n***** CALL REPORT *****\n{border}\n{report}\n{border}\n",
+            border="*" * 60,
+            report=report_json,
+        )
 
     callee_config = SipCalleeConfig(
         **config.model_dump(),
@@ -1162,22 +1319,88 @@ def cmd_callee_realtime_tts(args: argparse.Namespace) -> int:
     def call_factory(acc: SipCalleeAccount, call_id: int) -> SipCalleeRealtimeTtsCall:
         """Create a new real-time TTS call instance for an incoming call.
 
+        Each call gets its own ``VADAudioBuffer``, ``LiveTranscriptionThread``,
+        and optional RX/TX ``WavRecorder`` instances. The pre-loaded STT model
+        is shared across calls.
+
         Args:
             acc: The SIP account that received the call.
             call_id: PJSUA2 call identifier.
 
         Returns:
-            Configured real-time TTS call wired to the shared audio queue
-            and TTS producer.
+            Configured real-time TTS call wired to the shared audio queue,
+            TTS producer, and optional STT/recording infrastructure.
         """
-        return SipCalleeRealtimeTtsCall(
+        from sipstuff.audio import VADAudioBuffer, WavRecorder
+        from sipstuff.stt.live import LiveTranscriptionThread
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        call_tracking_id = f"{call_id}_{timestamp}"
+
+        audio_buf = VADAudioBuffer(
+            sample_rate=16000,
+            **vad_cfg.to_vad_buffer_kwargs(),
+        )
+        call_stt: LiveTranscriptionThread | None = None
+        if stt_model is not None:
+            call_stt = LiveTranscriptionThread(
+                audio_buf,
+                stt_config=stt_live_cfg,
+                call_start_time=datetime.now(),
+                model=stt_model,
+            )
+            call_stt.start()
+
+        wav_recorder_rx: WavRecorder | None = None
+        wav_recorder_tx: WavRecorder | None = None
+
+        if not args.no_wav:
+            if args.wav_output:
+                wav_path_rx = args.wav_output
+                logger.warning("--wav-output set: subsequent calls will overwrite the same RX file")
+            else:
+                wav_path_rx = os.path.join(args.wav_dir, f"call_{timestamp}_rx.wav")
+            wav_recorder_rx = WavRecorder(wav_path_rx, sample_rate=16000)
+            logger.info(f"RX recording → {wav_path_rx}")
+
+            if args.wav_output_tx:
+                tx_path = args.wav_output_tx
+                logger.warning("--wav-output-tx set: subsequent calls will overwrite the same TX file")
+            else:
+                tx_path = os.path.join(args.wav_dir, f"call_{timestamp}_tx.wav")
+            wav_recorder_tx = WavRecorder(tx_path, sample_rate=16000)
+            logger.info(f"TX recording → {tx_path}")
+
+        _audio_device: int | str | None = None
+        if args.audio_device is not None:
+            try:
+                _audio_device = int(args.audio_device)
+            except ValueError:
+                _audio_device = args.audio_device
+        audio_cfg = AudioDeviceConfig(
+            socket_path=args.audio_socket,
+            play_audio=args.play_audio,
+            audio_device=_audio_device,
+        )
+
+        call = SipCalleeRealtimeTtsCall(
             acc,
             call_id,
             audio_queue=audio_queue,
             tts_producer=tts_producer,
             initial_text=args.tts_text,
             sequence=sequence,
+            audio_buffer=audio_buf,
+            wav_recorder_rx=wav_recorder_rx,
+            wav_recorder_tx=wav_recorder_tx,
+            audio=audio_cfg,
+            on_call_ended=_on_call_ended,
         )
+        call.call_tracking_id = call_tracking_id
+        call.call_stt = call_stt
+        if call_stt is not None:
+            logger.info(f"Per-call STT started for call {call_tracking_id}")
+        return call
 
     try:
         with SipCallee(

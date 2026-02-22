@@ -661,6 +661,7 @@ class AudioPlayer:
                 model=tts_cfg.model,
                 sample_rate=tts_cfg.sample_rate or 16000,
                 data_dir=tts_cfg.data_dir,
+                use_cuda=tts_cfg.use_cuda,
             )
             self._tts_temp_paths.append(str(tmp_path))
             return str(tmp_path)

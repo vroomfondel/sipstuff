@@ -53,9 +53,10 @@ class TtsModelInfo:
     piper_python: str
     model_path: Path
     data_dir: Path
+    use_cuda: bool = False
 
 
-_TTS_CACHE: dict[tuple[str, str], TtsModelInfo] = {}
+_TTS_CACHE: dict[tuple[str, str, bool], TtsModelInfo] = {}
 _TTS_CACHE_LOCK = threading.Lock()
 
 
@@ -143,6 +144,7 @@ def generate_wav(
     output_path: str | Path | None = None,
     sample_rate: int = 0,
     data_dir: str | Path | None = None,
+    use_cuda: bool = False,
 ) -> Path:
     """Generate a WAV file from text using piper CLI.
 
@@ -163,7 +165,9 @@ def generate_wav(
     if not text.strip():
         raise TtsError("Empty text provided for TTS")
 
-    cfg = TtsConfig(model=model, sample_rate=sample_rate, data_dir=str(data_dir) if data_dir else None)
+    cfg = TtsConfig(
+        model=model, sample_rate=sample_rate, data_dir=str(data_dir) if data_dir else None, use_cuda=use_cuda
+    )
     info = load_tts_model(cfg)
 
     if output_path is None:
@@ -184,6 +188,8 @@ def generate_wav(
         "--output_file",
         str(output_path),
     ]
+    if info.use_cuda:
+        cmd.append("--cuda")
 
     try:
         result = subprocess.run(cmd, input=text, capture_output=True, text=True, timeout=120)
@@ -255,7 +261,7 @@ def load_tts_model(cfg: TtsConfig) -> TtsModelInfo:
         TtsError: If the piper binary or model cannot be found/downloaded.
     """
     data_dir = Path(cfg.data_dir) if cfg.data_dir else _PIPER_DATA_DIR
-    key = (cfg.model, str(data_dir))
+    key = (cfg.model, str(data_dir), cfg.use_cuda)
 
     with _TTS_CACHE_LOCK:
         if key in _TTS_CACHE:
@@ -271,6 +277,7 @@ def load_tts_model(cfg: TtsConfig) -> TtsModelInfo:
         piper_python=piper_python,
         model_path=model_path,
         data_dir=data_dir,
+        use_cuda=cfg.use_cuda,
     )
     with _TTS_CACHE_LOCK:
         _TTS_CACHE.setdefault(key, info)

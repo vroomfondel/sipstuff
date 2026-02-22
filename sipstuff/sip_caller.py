@@ -198,6 +198,7 @@ class SipCaller(SipEndpoint):
                 model=_tts_cfg.model,
                 sample_rate=_tts_cfg.sample_rate or 16000,
                 data_dir=_tts_cfg.data_dir,
+                use_cuda=_tts_cfg.use_cuda,
             )
             _tts_temp_path = str(_tts_temp)
             _wav_play = WavPlayConfig(wav_path=_tts_temp_path, pause_before=_wav_play.pause_before)

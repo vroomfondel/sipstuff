@@ -77,6 +77,7 @@ class PiperTTSProducer:
         audio_queue: "Queue[bytes]",
         target_rate: int = CLOCK_RATE,
         tts_model_info: TtsModelInfo | None = None,
+        use_cuda: bool = False,
     ):
         """Initialize the producer.
 
@@ -88,11 +89,13 @@ class PiperTTSProducer:
             tts_model_info: Optional pre-loaded model metadata.  When provided,
                 the Piper binary path and model path are taken from this object
                 instead of ``model_path`` and the ``PIPER_BIN`` environment variable.
+            use_cuda: Use CUDA GPU acceleration for Piper TTS.
         """
         self.model_path = model_path
         self.audio_queue = audio_queue
         self.target_rate = target_rate
         self._tts_model_info = tts_model_info
+        self._use_cuda = use_cuda
 
         self.text_queue: "Queue[str | None]" = Queue()
         self._thread: Optional[threading.Thread] = None
@@ -186,8 +189,12 @@ class PiperTTSProducer:
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp_path = tmp.name
 
+            cmd = [self._piper_bin, "--model", self.model_path, "--output_file", tmp_path]
+            if self._use_cuda:
+                cmd.append("--cuda")
+
             proc = subprocess.Popen(
-                [self._piper_bin, "--model", self.model_path, "--output_file", tmp_path],
+                cmd,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
