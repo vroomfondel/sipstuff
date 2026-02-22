@@ -138,6 +138,8 @@ RUN if [ "$install_openvino" = "true" ]; then \
     apt -y install --no-install-recommends build-essential linux-libc-dev && \
     runuser -u ${UNAME} -- env PATH="/home/${UNAME}/.local/bin:$PATH" \
         pip install --no-cache-dir ".[openvino]" && \
+    runuser -u ${UNAME} -- env PATH="/home/${UNAME}/.local/bin:$PATH" \
+        pip uninstall -y torch torchvision torchaudio nncf && \
     apt -y purge --auto-remove build-essential linux-libc-dev && \
     rm -rf /var/lib/apt/lists/*; \
     fi
