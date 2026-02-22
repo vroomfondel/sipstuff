@@ -113,7 +113,7 @@ RUN apt update && \
 ARG install_cuda=false
 RUN if [ "$install_cuda" = "true" ]; then \
     runuser -u ${UNAME} -- env PATH="/home/${UNAME}/.local/bin:$PATH" \
-        pip install --no-cache-dir nvidia-cublas-cu12 nvidia-cudnn-cu12 && \
+        pip install --no-cache-dir nvidia-cuda-runtime-cu12 nvidia-cublas-cu12 nvidia-cudnn-cu12 nvidia-curand-cu12 nvidia-cufft-cu12 nvidia-cusolver-cu12 nvidia-cusparse-cu12 nvidia-nvjitlink-cu12 && \
     if [ "$(uname -m)" = "x86_64" ]; then \
         runuser -u ${UNAME} -- env PATH="/home/${UNAME}/.local/bin:$PATH" \
             pip install --no-cache-dir onnxruntime-gpu && \
