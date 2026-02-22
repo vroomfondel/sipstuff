@@ -11,6 +11,8 @@ Provides the two core building blocks for real-time TTS streaming in SIP calls:
   to a ``PiperTTSProducer`` for live speaking during an active call.
 """
 
+import os
+import readline
 import struct
 import sys
 import threading
@@ -289,10 +291,18 @@ def interactive_console(tts_producer: PiperTTSProducer) -> None:
     exits when the user types ``quit``, ``exit``, or ``q``, or when stdin
     reaches EOF (e.g. Ctrl-D / Ctrl-C).
 
+    While the interactive prompt is active, loguru output is routed through
+    a readline-aware sink that clears the current input line before printing
+    log messages and re-displays the prompt + any partially typed text
+    afterward.  This prevents log output from interleaving with the ``TTS>``
+    prompt.
+
     Args:
         tts_producer: The producer instance that will synthesize and stream
             the entered text.
     """
+    from sipstuff import LOGURU_FORMAT, configure_logging
+
     log = logger.bind(classname="InteractiveConsole")
     log.info("")
     log.info("=== Interaktiver Modus ===")
@@ -300,14 +310,40 @@ def interactive_console(tts_producer: PiperTTSProducer) -> None:
     log.info("Befehle: 'quit' = Beenden")
     log.info("")
 
-    while True:
-        try:
-            text = input("TTS> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            break
+    prompt = "TTS> "
+    _lock = threading.Lock()
 
-        if text.lower() in ("quit", "exit", "q"):
-            break
+    def _interactive_sink(message: str) -> None:
+        with _lock:
+            buf = readline.get_line_buffer()
+            sys.stderr.write(f"\r\033[K{message}")
+            sys.stderr.flush()
+            sys.stdout.write(f"\r\033[K{prompt}{buf}")
+            sys.stdout.flush()
+            readline.redisplay()
 
-        if text:
-            tts_producer.speak(text)
+    # Swap loguru sink for readline-aware interactive sink
+    from loguru import logger as glogger
+
+    glogger.remove()
+    glogger.add(
+        _interactive_sink,
+        level=os.getenv("LOGURU_LEVEL", "DEBUG"),
+        format=LOGURU_FORMAT,
+        colorize=False,
+    )
+
+    try:
+        while True:
+            try:
+                text = input(prompt).strip()
+            except (EOFError, KeyboardInterrupt):
+                break
+
+            if text.lower() in ("quit", "exit", "q"):
+                break
+
+            if text:
+                tts_producer.speak(text)
+    finally:
+        configure_logging()
