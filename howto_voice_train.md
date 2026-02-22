@@ -373,16 +373,16 @@ Checkpoints gibt es unter: https://huggingface.co/datasets/rhasspy/piper-checkpo
 Für deutsches Finetuning eignet sich der **thorsten**-Checkpoint besonders gut:
 
 ```bash
-# Medium-Checkpoint (~846 MB) — direkt nutzbar mit --ckpt_path
+# Medium-Checkpoint (~846 MB)
 wget "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/medium/epoch%3D3135-step%3D2702056.ckpt" \
   -O thorsten-medium.ckpt
 
-# High-Checkpoint (~951 MB) — nur mit --ckpt_path nutzbar wenn auch High-Quality-Parameter gesetzt werden
+# High-Checkpoint (~951 MB)
 wget "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/high/epoch%3D2665-step%3D1182078.ckpt" \
   -O thorsten-high.ckpt
 ```
 
-**Wichtig:** Die verfügbaren Checkpoints auf HuggingFace verwenden die **Medium-Architektur**. Für High-Quality-Training mit einem Medium-Checkpoint muss `--model.vocoder_warmstart_ckpt` statt `--ckpt_path` verwendet werden (siehe [Abschnitt 9](#9-medium-vs-high-quality)).
+**Wichtig:** Diese Checkpoints stammen vom archivierten rhasspy/piper und sind **nicht direkt mit `--ckpt_path` in piper1-gpl ladbar** — es gibt drei Inkompatibilitäten: (1) Architektur-Mismatch bei den ResBlock-Layern (`convs1`/`convs2` vs. `convs`), (2) veraltete Hyperparameter die Lightning 2.x ablehnt, (3) `pathlib.PosixPath`-Objekte die PyTorch 2.6+ nicht deserialisieren kann. Stattdessen **immer `--model.vocoder_warmstart_ckpt`** verwenden — das lädt nur die Modell-Weights (non-strict), der Epoch-Zähler startet bei 0. Details siehe [Abschnitt 9](#9-medium-vs-high-quality).
 
 ---
 
@@ -407,7 +407,6 @@ Der Cache enthält vorberechnete `.pt`-Tensoren für jede Äußerung (Phoneme, g
 ### Finetuning starten (Medium Quality)
 
 ```bash
-# thorsten-medium steht bei Epoch 3135, +2000 eigene = 5135
 python -m piper.train fit \
   --data.voice_name "de_DE-meinname-medium" \
   --data.csv_path /pfad/zu/metadata_piper1.csv \
@@ -417,22 +416,22 @@ python -m piper.train fit \
   --data.cache_dir /pfad/zu/mein-dataset/cache/ \
   --data.config_path /pfad/zu/output/de_DE-meinname-medium.onnx.json \
   --data.batch_size 32 \
-  --trainer.max_epochs 5135 \
+  --trainer.max_epochs 2000 \
   --trainer.accelerator gpu \
   --trainer.devices 1 \
   --trainer.precision 32 \
-  --ckpt_path /pfad/zu/thorsten-medium.ckpt
+  --model.vocoder_warmstart_ckpt /pfad/zu/thorsten-medium.ckpt
 ```
 
 ### Wichtige Parameter
 
 | Parameter | Bedeutung |
 |-----------|-----------|
-| `--trainer.max_epochs` | **Absolut**, nicht relativ! Gesamtzahl der Epochen. Bei `--ckpt_path` wird der Epoch-Zähler aus dem Checkpoint wiederhergestellt (thorsten-medium = 3135, thorsten-high = 2665). Für 2000 zusätzliche Epochen ab thorsten-medium: `5135`. Bei `--model.vocoder_warmstart_ckpt` startet der Zähler bei 0 — dort ist `2000` wirklich 2000. Default: `-1` (unendlich — Training läuft bis Ctrl+C). |
+| `--trainer.max_epochs` | Gesamtzahl der Epochen. Bei `--model.vocoder_warmstart_ckpt` startet der Zähler bei 0 — `2000` sind wirklich 2000 Epochen. Default: `-1` (unendlich — Training läuft bis Ctrl+C). |
 | `--data.batch_size` | Default: `32`. Wird automatisch auch an `model.batch_size` gekoppelt. |
 | `--data.validation_split` | Default: `0.1` (10% des Datasets für Validierung). |
 | `--data.num_test_examples` | Default: `5`. Reserviert N Äußerungen für Audio-Sample-Generierung in TensorBoard. |
-| `--ckpt_path` | Checkpoint zum Fortsetzen/Finetunen. Architektur muss zum Modell passen (Medium-Checkpoint nur mit Medium-Parametern). |
+| `--model.vocoder_warmstart_ckpt` | Checkpoint zum Finetunen. Lädt nur die Modell-Weights (non-strict), kompatibel mit rhasspy/piper-Checkpoints. **Nicht** `--ckpt_path` verwenden — das scheitert an Architektur-Inkompatibilitäten (siehe [Abschnitt 9](#9-medium-vs-high-quality)). |
 | `--data.config_path` | Hier schreibt das Training die `.onnx.json` Konfiguration hin — wird beim ONNX-Export gebraucht. |
 
 ### Batch-Size-Empfehlung
@@ -455,17 +454,40 @@ tensorboard --logdir lightning_logs/
 # → http://localhost:6006 im Browser öffnen
 ```
 
-Dort sieht man Loss-Kurven und kann generierte Audio-Samples anhören.
+#### Scalars: Die wichtigsten Metriken
+
+| Metrik | Bedeutung |
+|--------|-----------|
+| **loss_d** | **Discriminator Loss** — wie gut der Discriminator echte von generierten Samples unterscheidet. Sollte sich bei stabilem Wert einpendeln (nicht gegen 0 gehen). |
+| **loss_g** | **Generator Loss** — wie gut das TTS-Modell den Discriminator täuscht. Setzt sich zusammen aus Adversarial Loss, Mel-Spectrogram Loss, Feature Matching Loss und KL-Divergence. Sollte über die Zeit sinken. |
+| **val_loss** | **Validation Loss** — Mel-Spectrogram Loss auf dem Validation-Set (ungesehene Daten). **Wichtigster Indikator** für tatsächliche Qualität. Wenn val_loss steigt während loss_g sinkt → Overfitting. |
+| **loss_mel** | Mel-Spectrogram Reconstruction Loss — wie nah das generierte Audio am Original ist. |
+| **loss_kl** | KL-Divergence Loss — wie gut die latente Repräsentation zur Prior-Verteilung passt. |
+| **loss_fm** | Feature Matching Loss — Ähnlichkeit der internen Discriminator-Features. |
+| **learning_rate** | Hilfreich um zu prüfen ob der LR-Scheduler richtig arbeitet. |
+
+#### Images & Audio
+
+- **Mel-Spectrogramme**: Vergleich Ground-Truth vs. generiert. Je ähnlicher, desto besser. Unscharfe/verschmierte Bereiche = schlechte Qualität.
+- **Alignment-Plots**: Zeigen wie Text auf die Zeitachse gemappt wird. Eine klare, monoton steigende Diagonale = gutes Alignment. Chaotische Diagonale = Probleme mit Aussprache.
+- **Audio-Samples**: Generierte Samples direkt im Browser anhörbar — der direkteste Qualitätscheck.
+
+#### Worauf achten
+
+- `val_loss` ist der beste Indikator für hörbare Verbesserung
+- `loss_d` und `loss_g` sollten sich gegenseitig balancieren (GAN-Equilibrium)
+- Wenn `loss_d` auf 0 fällt, dominiert der Discriminator und das Training stagniert
+- Alignment-Plots sind am aufschlussreichsten — saubere Diagonale = gute Aussprache
 
 ### Training fortsetzen
 
-Da `--trainer.max_epochs` absolut ist, einfach mit höherem Wert neu starten. Lightning findet den letzten Checkpoint automatisch in `lightning_logs/`:
+Einfach mit höherem `max_epochs`-Wert neu starten. Lightning findet den letzten Checkpoint automatisch in `lightning_logs/`:
 
 ```bash
-# Weitermachen bis Epoch 7135 (war vorher auf 5135 begrenzt)
+# Weitermachen bis Epoch 4000 (war vorher auf 2000 begrenzt)
 python -m piper.train fit \
   ... (gleiche Parameter) \
-  --trainer.max_epochs 7135
+  --trainer.max_epochs 4000
 ```
 
 Alternativ `--trainer.max_epochs -1` für unbegrenztes Training (manuell mit Ctrl+C stoppen).
@@ -474,7 +496,7 @@ Alternativ `--trainer.max_epochs -1` für unbegrenztes Training (manuell mit Ctr
 
 ## 8. Training: Modell von Grund auf
 
-Gleicher Ablauf wie Finetuning, aber **ohne** `--ckpt_path`:
+Gleicher Ablauf wie Finetuning, aber **ohne** `--model.vocoder_warmstart_ckpt`:
 
 ```bash
 python -m piper.train fit \
@@ -544,22 +566,29 @@ python -m piper.train fit \
   --model.vocoder_warmstart_ckpt /pfad/zu/thorsten-medium.ckpt
 ```
 
-### High-Quality Finetuning mit High-Checkpoint
+### High-Quality Finetuning mit High-Checkpoint (rhasspy/piper)
 
-Falls ein High-Quality-Checkpoint vorliegt (z.B. `thorsten-high.ckpt`), kann `--ckpt_path` direkt verwendet werden — aber die High-Quality-Parameter **müssen trotzdem gesetzt werden**, da sie nicht aus dem Checkpoint gelesen werden. Hier wird der Epoch-Zähler wiederhergestellt (thorsten-high = 2665):
+> **Achtung:** `--ckpt_path` (strict loading) funktioniert **nicht** mit alten rhasspy/piper-Checkpoints. Es gibt drei Inkompatibilitäten:
+>
+> 1. **Architektur-Mismatch:** rhasspy/piper verwendet ResBlocks mit zwei getrennten ModuleLists (`convs1` + `convs2`, je 3 Convolutions = 6 pro Block). piper1-gpl verwendet eine einzelne flache Liste (`convs`, 2 pro Block). Das führt zu `Missing key` / `Unexpected key` Fehlern beim Laden des `state_dict`.
+>
+> 2. **Veraltete Hyperparameter:** Alte Checkpoints speichern Trainer/Config-Keys (z.B. `sample_bytes`, `quality`, `gpus`, `auto_lr_find`), die Lightning 2.x als unbekannte CLI-Argumente ablehnt.
+>
+> 3. **PyTorch 2.6+ `weights_only=True`:** Alte Checkpoints enthalten `pathlib.PosixPath`-Objekte, die bei der Deserialisierung scheitern.
+>
+> **Lösung:** Auch bei High→High muss `--model.vocoder_warmstart_ckpt` verwendet werden. Der Epoch-Zähler startet bei 0.
 
 ```bash
-# thorsten-high steht bei Epoch 2665, +2000 eigene = 4665
 python -m piper.train fit \
   ... (gleiche Parameter wie oben) \
-  --trainer.max_epochs 4665 \
+  --trainer.max_epochs 2000 \
   --model.resblock 1 \
   --model.resblock_kernel_sizes '[3, 7, 11]' \
   --model.resblock_dilation_sizes '[[1, 3, 5], [1, 3, 5], [1, 3, 5]]' \
   --model.upsample_rates '[8, 8, 2, 2]' \
   --model.upsample_initial_channel 512 \
   --model.upsample_kernel_sizes '[16, 16, 4, 4]' \
-  --ckpt_path /pfad/zu/thorsten-high.ckpt
+  --model.vocoder_warmstart_ckpt /pfad/zu/thorsten-high.ckpt
 ```
 
 ### Wann Medium, wann High?
@@ -578,6 +607,8 @@ python -m piper.train fit \
 ## 10. ONNX-Export & die .onnx.json Konfiguration
 
 ### Export
+
+> **PyTorch 2.6+ Patch nötig:** Der ONNX-Export schlägt mit dem neuen Dynamo-basierten Exporter fehl (`GuardOnDataDependentSymNode` in `transforms.py:rational_quadratic_spline`). Fix: In `piper1-gpl/src/piper/train/export_onnx.py` den Parameter `dynamo=False` zum `torch.onnx.export()`-Aufruf hinzufügen, um den Legacy TorchScript-Exporter zu erzwingen.
 
 ```bash
 python -m piper.train.export_onnx \
@@ -716,11 +747,11 @@ python -m piper.train fit \
   --data.cache_dir /pfad/zu/mein-dataset/cache/ \
   --data.config_path /pfad/zu/output/de_DE-meinname-medium.onnx.json \
   --data.batch_size 32 \
-  --trainer.max_epochs 5135 \
+  --trainer.max_epochs 2000 \
   --trainer.accelerator gpu \
   --trainer.devices 1 \
   --trainer.precision 32 \
-  --ckpt_path /pfad/zu/thorsten-medium.ckpt
+  --model.vocoder_warmstart_ckpt /pfad/zu/thorsten-medium.ckpt
 
 # 8. ONNX-Export
 python -m piper.train.export_onnx \
