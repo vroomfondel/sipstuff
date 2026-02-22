@@ -18,14 +18,16 @@ Usage:
 
 import argparse
 import os
+import signal
 import sys
 import time
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
-from PySide6.QtCore import QSize, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import (
     QBrush,
     QCloseEvent,
@@ -495,6 +497,9 @@ class RecorderWindow(QMainWindow):
         self._init_ui()
         self._apply_dark_theme()
         self._update_stats()
+
+        # Capture Space/Return/P globally so table focus doesn't swallow them
+        QApplication.instance().installEventFilter(self)  # type: ignore[union-attr]
 
         # Erste Zeile auswählen
         if self.entries:
@@ -1055,39 +1060,35 @@ class RecorderWindow(QMainWindow):
 
     # ── Tastatur-Handling ───────────────────────────────────────────────
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:
-        """Handle key press events for recording (Space), navigation (Return), and playback (P).
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        """Application-wide event filter for recording hotkeys.
 
-        Auto-repeat events are ignored to avoid unintended repeated triggers.
-
-        Args:
-            event: The key press event from Qt.
+        Intercepts Space (hold-to-record), Return (next row), and P (playback)
+        regardless of which widget currently has focus.
         """
-        if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
-            self._start_recording()
-            event.accept()
-        elif event.key() == Qt.Key.Key_Return and not event.isAutoRepeat():
-            if not self.is_recording and not self.is_playing:
-                self._next_row()
-            event.accept()
-        elif event.key() == Qt.Key.Key_P and not event.isAutoRepeat():
-            if not self.is_recording:
-                self._play_current()
-            event.accept()
-        else:
-            super().keyPressEvent(event)
-
-    def keyReleaseEvent(self, event: QKeyEvent) -> None:
-        """Handle key release events; releasing Space stops the active recording.
-
-        Args:
-            event: The key release event from Qt.
-        """
-        if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
-            self._stop_recording()
-            event.accept()
-        else:
-            super().keyReleaseEvent(event)
+        if event.type() == QEvent.Type.KeyPress:
+            key_event = cast(QKeyEvent, event)
+            if key_event.isAutoRepeat():
+                return False
+            if key_event.key() == Qt.Key.Key_Space:
+                self._start_recording()
+                return True
+            if key_event.key() == Qt.Key.Key_Return:
+                if not self.is_recording and not self.is_playing:
+                    self._next_row()
+                return True
+            if key_event.key() == Qt.Key.Key_P:
+                if not self.is_recording:
+                    self._play_current()
+                return True
+        elif event.type() == QEvent.Type.KeyRelease:
+            key_event_rel = cast(QKeyEvent, event)
+            if key_event_rel.isAutoRepeat():
+                return False
+            if key_event_rel.key() == Qt.Key.Key_Space:
+                self._stop_recording()
+                return True
+        return super().eventFilter(obj, event)
 
     # ── Cleanup ─────────────────────────────────────────────────────────
 
@@ -1116,15 +1117,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Piper TTS Dataset Recorder – PySide6 GUI",
     )
+    parser.add_argument("--metadata", type=str, required=True, help="Pfad zur metadata.csv")
     parser.add_argument(
-        "--metadata", type=str, default="metadata.csv", help="Pfad zur metadata.csv (default: metadata.csv)"
+        "--output", type=str, default="./wavs.local", help="Ausgabeordner für WAV-Dateien (default: ./wavs.local)"
     )
-    parser.add_argument("--output", type=str, default="./wavs", help="Ausgabeordner für WAV-Dateien (default: ./wavs)")
     parser.add_argument("--samplerate", type=int, default=22050, help="Samplerate in Hz (default: 22050)")
     parser.add_argument("--channels", type=int, default=1, help="Kanäle (default: 1)")
     parser.add_argument("--device", type=int, default=None, help="Audio-Eingabegerät ID")
 
     args = parser.parse_args()
+
+    if not os.path.isfile(args.metadata):
+        parser.error(f"Metadata-Datei nicht gefunden: {args.metadata}")
 
     os.makedirs(args.output, exist_ok=True)
 
@@ -1139,6 +1143,13 @@ def main() -> None:
         device=args.device,
     )
     window.show()
+
+    # Allow Ctrl+C to terminate the Qt application from the terminal
+    signal.signal(signal.SIGINT, lambda *_: app.quit())
+    timer = QTimer()
+    timer.timeout.connect(lambda: None)  # Let Python process signals periodically
+    timer.start(200)
+
     sys.exit(app.exec())
 
 
