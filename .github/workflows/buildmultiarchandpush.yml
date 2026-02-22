@@ -12,6 +12,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - install_cuda: "false"
+            install_openvino: "false"
+          - install_cuda: "true"
+            install_openvino: "false"
+          - install_cuda: "false"
+            install_openvino: "true"
+          - install_cuda: "true"
+            install_openvino: "true"
     steps:
       # Get the repository's code
       # NOTE: not really needed since build-push-action uses the "Git context"
@@ -50,8 +62,8 @@ jobs:
           PYTHON_VERSION=3.14
           DEBIAN_VERSION=slim-trixie
           PJSIP_VERSION=2.16
-          INSTALL_CUDA=false
-          INSTALL_OPENVINO=false
+          INSTALL_CUDA=${{ matrix.install_cuda }}
+          INSTALL_OPENVINO=${{ matrix.install_openvino }}
 
           TAG="python-${PYTHON_VERSION}-${DEBIAN_VERSION}-pjsip_${PJSIP_VERSION}"
           if [[ "${INSTALL_CUDA}" == "true" ]]; then
@@ -65,13 +77,18 @@ jobs:
             TAG="${TAG}-noopenvino"
           fi
 
+          TAGS="xomoxcc/sipstuff:${TAG}"
+          if [[ "${INSTALL_CUDA}" == "false" && "${INSTALL_OPENVINO}" == "false" ]]; then
+            TAGS="${TAGS},xomoxcc/sipstuff:latest"
+          fi
+
           echo "buildtime=${BUILDTIME}" >> $GITHUB_OUTPUT
           echo "python_version=${PYTHON_VERSION}" >> $GITHUB_OUTPUT
           echo "debian_version=${DEBIAN_VERSION}" >> $GITHUB_OUTPUT
           echo "pjsip_version=${PJSIP_VERSION}" >> $GITHUB_OUTPUT
           echo "install_cuda=${INSTALL_CUDA}" >> $GITHUB_OUTPUT
           echo "install_openvino=${INSTALL_OPENVINO}" >> $GITHUB_OUTPUT
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -80,7 +97,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           # github.event_name ist hier dann immer "workflow_run"
           push: ${{ github.event_name != 'pull_request' }}
-          tags: "xomoxcc/sipstuff:latest,xomoxcc/sipstuff:${{ steps.build_vars.outputs.tag }}"
+          tags: ${{ steps.build_vars.outputs.tags }}
           build-args: |
             buildtime=${{ steps.build_vars.outputs.buildtime }}
             python_version=${{ steps.build_vars.outputs.python_version }}

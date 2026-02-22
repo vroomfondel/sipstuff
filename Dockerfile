@@ -166,8 +166,12 @@ print('nvidia lib dirs:', dirs)" && \
 # Build with: docker build --build-arg INSTALL_OPENVINO=true ...
 ARG install_openvino=false
 RUN if [ "$install_openvino" = "true" ]; then \
+    apt update && \
+    apt -y install --no-install-recommends build-essential linux-libc-dev && \
     runuser -u ${UNAME} -- env PATH="/home/${UNAME}/.local/bin:$PATH" \
-        pip install --no-cache-dir ".[openvino]"; \
+        pip install --no-cache-dir ".[openvino]" && \
+    apt -y purge --auto-remove build-essential linux-libc-dev && \
+    rm -rf /var/lib/apt/lists/*; \
     fi
 
 USER ${UNAME}

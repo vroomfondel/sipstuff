@@ -4,7 +4,7 @@ set -euo pipefail
 #=============================================================================
 # CONFIGURATION
 #=============================================================================
-readonly BUILD_SCRIPT_VERSION="2026-02-19_11:11:11"
+readonly BUILD_SCRIPT_VERSION="2026-02-22_11:11:11"
 readonly SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 readonly INCLUDE_SH="include.sh"
 readonly PODMAN_VM_INIT_DISK_SIZE=100
@@ -12,8 +12,8 @@ readonly PYTHON_VERSION=3.14
 readonly DEBIAN_VERSION=slim-trixie
 readonly PJSIP_VERSION=$(curl -s https://api.github.com/repos/pjsip/pjproject/releases/latest | jq -r '.tag_name')  # 2.16
 
-readonly INSTALL_CUDA="false"
-readonly INSTALL_OPENVINO="false"
+readonly INSTALL_CUDA="${INSTALL_CUDA:-false}"
+readonly INSTALL_OPENVINO="${INSTALL_OPENVINO:-false}"
 
 DOCKER_IMAGE="docker.io/xomoxcc/sipstuff:python-${PYTHON_VERSION}-${DEBIAN_VERSION}-pjsip_${PJSIP_VERSION}"
 if [[ "${INSTALL_CUDA}" == "true" ]]; then
@@ -28,7 +28,17 @@ else
 fi
 readonly DOCKER_IMAGE
 
-readonly DOCKER_IMAGE_LATEST="${DOCKER_IMAGE%:*}:latest"
+if [[ "${INSTALL_CUDA}" == "false" && "${INSTALL_OPENVINO}" == "false" ]]; then
+  # only nocuda-noopenvino image gets (additionally) tagged "latest"
+  readonly DOCKER_IMAGE_LATEST="${DOCKER_IMAGE%:*}:latest"
+else
+  readonly DOCKER_IMAGE_LATEST=""
+fi
+
+echo DOCKER_IMAGE: $DOCKER_IMAGE
+echo DOCKER_IMAGE_LATEST: $DOCKER_IMAGE_LATEST
+exit 123
+
 readonly PLATFORMS=("linux/amd64" "linux/arm64")
 readonly DOCKERFILE=../Dockerfile
 readonly DOCKER_BUILD_CONTEXT=$(dirname "$(realpath --relative-to="${SCRIPT_DIR}" "${SCRIPT_DIR}/${DOCKERFILE}")")
@@ -215,9 +225,8 @@ build_with_docker() {
   printf -v platforms_csv '%s,' "${PLATFORMS[@]}"
   platforms_csv="${platforms_csv%,}"
 
-  # Add latest tag if not already latest
   local -a build_args=("${BUILD_BASE_ARGS[@]}")
-  if [[ "${DOCKER_IMAGE}" != *:latest ]]; then
+  if [[ -n "${DOCKER_IMAGE_LATEST}" && "${DOCKER_IMAGE}" != *:latest ]]; then
     build_args+=("-t" "${DOCKER_IMAGE_LATEST}")
   fi
 
@@ -353,8 +362,7 @@ build_with_podman() {
   echo podman manifest create "${DOCKER_IMAGE}" "${platform_tags[@]}"
   podman manifest create "${DOCKER_IMAGE}" "${platform_tags[@]}"
 
-  # Tag with latest (if not already latest)
-  if [[ "${DOCKER_IMAGE}" != *:latest ]]; then
+  if [[ -n "${DOCKER_IMAGE_LATEST}" && "${DOCKER_IMAGE}" != *:latest ]]; then
     log "Tagging as latest: ${DOCKER_IMAGE_LATEST}"
     podman tag "${DOCKER_IMAGE}" "${DOCKER_IMAGE_LATEST}"
   fi
@@ -366,8 +374,7 @@ build_with_podman() {
   echo podman manifest push "${DOCKER_IMAGE}" "docker://${DOCKER_IMAGE}"
   podman manifest push "${DOCKER_IMAGE}" "docker://${DOCKER_IMAGE}"
 
-  # Push latest tag
-  if [[ "${DOCKER_IMAGE}" != *:latest ]]; then
+  if [[ -n "${DOCKER_IMAGE_LATEST}" && "${DOCKER_IMAGE}" != *:latest ]]; then
     log "Pushing as latest: ${DOCKER_IMAGE_LATEST}"
     podman manifest push "${DOCKER_IMAGE}" "docker://${DOCKER_IMAGE_LATEST}"
   fi
@@ -399,10 +406,9 @@ build_local_only() {
   esac
   local native_platform="linux/${native_arch}"
 
-  # Add latest tag if not already latest
   local -a build_args=("${BUILD_BASE_ARGS[@]}")
   build_args+=("--platform" "${native_platform}")
-  if [[ "${DOCKER_IMAGE}" != *:latest ]]; then
+  if [[ -n "${DOCKER_IMAGE_LATEST}" && "${DOCKER_IMAGE}" != *:latest ]]; then
     build_args+=("-t" "${DOCKER_IMAGE_LATEST}")
   fi
 

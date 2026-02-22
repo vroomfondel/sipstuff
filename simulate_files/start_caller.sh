@@ -20,12 +20,50 @@ if ! [ -d "${data_dir}" ] ; then
   mkdir -p "${data_dir}"
 fi
 
+GPU_FLAGS=()
+STT_DEVICE_FLAGS=()
+SND_DEVICE_FLAGS=()
+
+SND_DEVICE_FLAGS+=("-v" "/run/user/$(id -u)/pulse:/run/user/1200/pulse")
+SND_DEVICE_FLAGS+=("-e" "PULSE_SERVER=unix:/run/user/1200/pulse/native")
+
+USE_CUDA=false
+USE_OPENVINO=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --cuda)     USE_CUDA=true ;;
+    --openvino) USE_OPENVINO=true ;;
+  esac
+done
+
+sipstuff_image="xomoxcc/sipstuff:latest"
+
+if "$USE_CUDA" || "$USE_OPENVINO" ; then
+  PYTHON_VERSION=3.14
+  DEBIAN_VERSION=slim-trixie
+  PJSIP_VERSION=2.16
+  sipstuff_image="xomoxcc/sipstuff:python-${PYTHON_VERSION}-${DEBIAN_VERSION}-pjsip_${PJSIP_VERSION}-nocuda-noopenvino"
+fi
+
+if "$USE_CUDA"; then
+  GPU_FLAGS=("--device" "nvidia.com/gpu=all")
+  STT_DEVICE_FLAGS=("--stt-device" "cuda")
+  sipstuff_image="${sipstuff_image/nocuda/cuda}"
+fi
+
+if "$USE_OPENVINO"; then
+  GPU_FLAGS=("--device" "/dev/dri/renderD128:/dev/dri/renderD128" "--group-add" "226" "--group-add" "993" "--group-add" "128")
+  STT_DEVICE_FLAGS=("--stt-backend" "openvino")
+  sipstuff_image="${sipstuff_image/noopenvino/openvino}"
+fi
+
 podman run --network=host -it --rm \
   --userns=keep-id:uid=1200,gid=1201 \
-  -v /run/user/$(id -u)/pulse:/run/user/1200/pulse \
-  -e PULSE_SERVER=unix:/run/user/1200/pulse/native \
+  "${SND_DEVICE_FLAGS[@]}" \
+  "${GPU_FLAGS[@]}" \
   -v "${data_dir}:/data" \
-  xomoxcc/sipstuff:latest \
+  "${sipstuff_image}" \
   python3 -m sipstuff.cli call \
   --stt-data-dir /data/whisper-models \
   --tts-data-dir /data/piper-models \
