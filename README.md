@@ -3,6 +3,7 @@
 [![black-lint](https://github.com/vroomfondel/sipstuff/actions/workflows/checkblack.yml/badge.svg)](https://github.com/vroomfondel/sipstuff/actions/workflows/checkblack.yml)
 ![Cumulative Clones](https://img.shields.io/endpoint?logo=github&url=https://gist.githubusercontent.com/vroomfondel/92ea75186bc004c1125824335f69a821/raw/sipstuff_clone_count.json)
 [![Docker Pulls](https://img.shields.io/docker/pulls/xomoxcc/sipstuff?logo=docker)](https://hub.docker.com/r/xomoxcc/sipstuff/tags)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/sipstuff?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=PyPi+Downloads)](https://pepy.tech/projects/sipstuff)
 [![PyPI](https://img.shields.io/pypi/v/sipstuff?logo=pypi&logoColor=white)](https://pypi.org/project/sipstuff/)
 
 [![Gemini_Generated_Image_cpliijcpliijcpli_250x250.png](https://raw.githubusercontent.com/vroomfondel/sipstuff/main/Gemini_Generated_Image_cpliijcpliijcpli_250x250.png)](https://hub.docker.com/r/xomoxcc/sipstuff/tags)
