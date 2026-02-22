@@ -19,7 +19,7 @@ Quick links:
 ## Why this is useful
 
 - **Headless SIP calling** — place automated phone calls from scripts, monitoring systems, alerting pipelines, or CI/CD without a sound card or GUI.
-- **TTS + STT in one image** — synthesize speech via [piper TTS](https://github.com/rhasspy/piper) and transcribe recordings via [faster-whisper](https://github.com/SYSTRAN/faster-whisper), all in a single container.
+- **TTS + STT in one image** — synthesize speech via [piper TTS](https://github.com/rhasspy/piper) (with optional CUDA acceleration) and transcribe recordings via [faster-whisper](https://github.com/SYSTRAN/faster-whisper), all in a single container.
 - **Incoming call handling** — auto-answer, WAV playback, real-time TTS, and live transcription for callee scenarios.
 - **NAT traversal** — STUN, ICE, TURN relay, UDP keepalive, and static public address support for complex network environments.
 - **Encryption** — UDP, TCP, and TLS transports with optional SRTP media encryption.
@@ -67,10 +67,10 @@ The image provides six subcommands via `python3 -m sipstuff.cli`:
 | Subcommand | Description |
 |---|---|
 | `call` | Place an outgoing SIP call with WAV playback, TTS, recording, and transcription |
-| `tts` | Generate a WAV file from text using piper TTS (no SIP server needed) |
+| `tts` | Generate or play TTS audio (interactive REPL, in-memory playback, or WAV file; no SIP server needed) |
 | `stt` | Transcribe a WAV file using faster-whisper (no SIP server needed) |
 | `callee_autoanswer` | Auto-answer incoming calls with optional WAV/TTS playback |
-| `callee_realtime-tts` | Answer incoming calls and speak text in real-time via Piper TTS |
+| `callee_realtime-tts` | Answer incoming calls with live TTS, STT, recording, VAD, and audio streaming |
 | `callee_live-transcribe` | Answer incoming calls and transcribe remote audio in real-time |
 
 
@@ -193,6 +193,17 @@ Key environment variables:
 | `SIP_PASSWORD` | SIP password |
 | `SIP_TRANSPORT` | `udp`, `tcp`, or `tls` |
 | `SIP_SRTP` | `disabled`, `optional`, or `mandatory` |
+| `SIP_TTS_CUDA` | Use CUDA GPU acceleration for Piper TTS |
+| `SIP_TTS_DATA_DIR` | Directory for piper voice models |
+| `SIP_STT_BACKEND` | STT backend: `faster-whisper` or `openvino` |
+| `SIP_STT_MODEL` | Whisper model size |
+| `SIP_STT_LANGUAGE` | Language code for STT |
+| `SIP_STT_DEVICE` | Compute device: `cpu` or `cuda` |
+| `SIP_STT_DATA_DIR` | Whisper model cache directory |
+| `SIP_VAD_SILENCE_THRESHOLD` | RMS silence threshold |
+| `SIP_VAD_SILENCE_TRIGGER` | Seconds of silence to trigger chunk boundary |
+| `SIP_VAD_MAX_CHUNK` | Max seconds per audio chunk |
+| `SIP_VAD_MIN_CHUNK` | Min seconds per audio chunk |
 | `SIP_STUN_SERVERS` | Comma-separated STUN servers |
 | `SIP_ICE_ENABLED` | Enable ICE for NAT traversal |
 | `SIP_TURN_SERVER` | TURN relay server (host:port) |

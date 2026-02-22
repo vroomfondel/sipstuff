@@ -65,7 +65,7 @@ python -m sipstuff.cli <subcommand> [args...]
 
 ### `tts` — Text-to-Speech
 
-Generate a WAV file from text using piper TTS (no SIP server needed):
+Generate a WAV file from text using piper TTS (no SIP server needed). When `--play-audio` is used without `-o`, audio is synthesized entirely in memory (no temp file).
 
 ```bash
 # Basic German TTS
@@ -80,15 +80,26 @@ python -m sipstuff.cli tts "Achtung!" -o alert.wav --tts-data-dir /opt/piper-voi
 
 # Generate and play back on speakers
 python -m sipstuff.cli tts "Test" -o test.wav --play-audio
+
+# Play without saving to disk (in-memory synthesis)
+python -m sipstuff.cli tts "Nur zum Anhören" --play-audio
+
+# Interactive REPL — type text and hear it spoken in real-time
+python -m sipstuff.cli tts --interactive --model de_DE-thorsten-high
+
+# CUDA-accelerated TTS
+python -m sipstuff.cli tts "Schnell!" -o fast.wav --tts-cuda
 ```
 
 | Flag | Description |
 |------|-------------|
 | `text` (positional) | Text to synthesize |
-| `--output`, `-o` | Output WAV file path (required) |
+| `--output`, `-o` | Output WAV file path (optional when `--play-audio` or `--interactive` is used) |
 | `--model`, `-m` | Piper voice model (default: `de_DE-thorsten-high`) |
 | `--sample-rate` | Resample to this rate in Hz (0 = native) |
 | `--tts-data-dir` | Directory for piper voice models (default: `~/.local/share/piper-voices`) |
+| `--interactive`, `-i` | Interactive REPL: type text and hear it spoken in real-time via speakers (requires sounddevice) |
+| `--tts-cuda` | Use CUDA GPU acceleration for Piper TTS |
 | `--play-audio` | Play generated audio on speakers via sounddevice |
 | `--audio-device` | Sounddevice output device index or name substring |
 | `--verbose`, `-v` | Debug logging |
@@ -274,6 +285,7 @@ When `--transcribe` is used with `--record`, a JSON call report is written next 
 | `--piper-model` | Path to Piper `.onnx` model for live TTS in interactive mode |
 | `--tts-sample-rate` | Resample TTS output to this rate in Hz (default: native/22050) |
 | `--tts-data-dir` | Directory for piper voice models (default: `~/.local/share/piper-voices`) |
+| `--tts-cuda` | Use CUDA GPU acceleration for Piper TTS |
 
 **Playback timing:**
 
@@ -383,6 +395,7 @@ python -m sipstuff.cli callee_autoanswer \
 | `--pause-before-content` | Pause before content WAV/TTS (default: 0.0 s) |
 | `--pause-before-end` | Pause before end WAV (default: 0.0 s) |
 | `--answer-delay` | Seconds before answering (default: 1.0) |
+| `--tts-cuda` | Use CUDA GPU acceleration for Piper TTS |
 | `--no-auto-answer` | Do not auto-answer calls |
 
 Shared flags: `--config`, `--server`, `--port`, `--user`, `--password`, `--transport`, `--srtp`, `--tls-verify`, `--local-port`, NAT traversal group, `--verbose`, `--pjsip-log-level`
@@ -405,15 +418,56 @@ python -m sipstuff.cli callee_realtime-tts \
     --piper-model /path/to/de_DE-thorsten-high.onnx
 ```
 
+**TTS & playback:**
+
 | Flag | Description |
 |------|-------------|
 | `--tts-text` | Initial TTS text spoken on answer |
 | `--interactive` | Interactive mode: type text in the console that gets spoken live |
 | `--piper-model` | Path to Piper `.onnx` model (default: `./de_DE-thorsten-high.onnx`) |
+| `--tts-cuda` | Use CUDA GPU acceleration for Piper TTS |
 | `--wav-file` | WAV file to play at call start |
 | `--play-delay` | Seconds to wait before playback (default: 0.0) |
 | `--answer-delay` | Seconds before answering (default: 1.0) |
 | `--no-auto-answer` | Do not auto-answer calls |
+
+**STT (speech-to-text):**
+
+| Flag | Description |
+|------|-------------|
+| `--stt-backend` | STT backend: `faster-whisper` (default) or `openvino` |
+| `--stt-model` | Whisper model size or HuggingFace model ID (default: `base`) |
+| `--stt-live-model` | Separate smaller model for live transcription |
+| `--stt-device` | Compute device: `cpu` or `cuda` |
+| `--stt-language` | Language code for STT |
+| `--stt-data-dir` | Whisper model cache directory |
+
+**Live VAD:**
+
+| Flag | Description |
+|------|-------------|
+| `--vad-silence-threshold` | RMS silence threshold (default: 0.01) |
+| `--vad-silence-trigger` | Seconds of silence to trigger chunk boundary (default: 0.3) |
+| `--vad-max-chunk` | Max seconds per audio chunk (default: 5.0) |
+| `--vad-min-chunk` | Min seconds per audio chunk (default: 0.5) |
+
+**Recording & transcription:**
+
+| Flag | Description |
+|------|-------------|
+| `--wav-output` | Save RX recording to this path |
+| `--wav-dir` | Directory for WAV files (default: `..`) |
+| `--wav-output-tx` | Save TX recording to this path |
+| `--no-wav` | Do not save WAV recordings |
+| `--transcribe` | Full transcription of RX recording after call ends (writes JSON report) |
+
+**Audio output:**
+
+| Flag | Description |
+|------|-------------|
+| `--audio-socket` | Unix socket for live audio streaming (PCM 16 kHz, S16_LE, mono) |
+| `--play-audio` | Play remote audio on local speakers via sounddevice |
+| `--audio-device` | Sounddevice output device (index or name substring) |
 
 Shared flags: `--config`, `--server`, `--port`, `--user`, `--password`, `--transport`, `--srtp`, `--tls-verify`, `--local-port`, NAT traversal group, `--verbose`, `--pjsip-log-level`
 
@@ -565,9 +619,14 @@ Notes:
 
 ## Example Output
 
-TTS call with silence detection, recording, and transcription:
+### TTS call with silence detection, recording, and transcription:
 
-<video src="https://github.com/user-attachments/assets/6f3177b4-77ac-494b-ba07-f277eacd3f9b" controls></video>
+<video src="https://github.com/user-attachments/assets/6f3177b4-77ac-494b-ba07-f277eacd3f9b" width="100%" controls></video>
+
+### TTS live transcribe with Cuda acceleration and live snddevice output from container:
+
+<video src="https://github.com/user-attachments/assets/996c63d2-4f40-4402-9107-9d8b4b8827eb" width="100%" controls></video>
+
 
 ![Call startup — TTS generation, SIP registration, silence detection, and WAV playback](Bildschirmfoto_2026-02-15_17-40-19_blurred.png)
 
@@ -845,6 +904,8 @@ All settings can be set via `SIP_` prefixed environment variables:
 |----------|---------|
 | `SIP_TTS_MODEL` | `tts.model` |
 | `SIP_TTS_SAMPLE_RATE` | `tts.sample_rate` |
+| `SIP_TTS_CUDA` | `tts.use_cuda` |
+| `SIP_TTS_DATA_DIR` | `tts.data_dir` |
 
 **NAT traversal:**
 
@@ -876,7 +937,21 @@ All settings can be set via `SIP_` prefixed environment variables:
 
 | Variable | Maps to |
 |----------|---------|
+| `SIP_STT_BACKEND` | `stt.backend` |
+| `SIP_STT_MODEL` | `stt.model` |
+| `SIP_STT_LANGUAGE` | `stt.language` |
+| `SIP_STT_DEVICE` | `stt.device` |
+| `SIP_STT_DATA_DIR` | `stt.data_dir` |
 | `SIP_LIVE_TRANSCRIBE` | `stt.live_transcribe` |
+
+**VAD:**
+
+| Variable | Maps to |
+|----------|---------|
+| `SIP_VAD_SILENCE_THRESHOLD` | `vad.silence_threshold` |
+| `SIP_VAD_SILENCE_TRIGGER` | `vad.silence_trigger` |
+| `SIP_VAD_MAX_CHUNK` | `vad.max_chunk` |
+| `SIP_VAD_MIN_CHUNK` | `vad.min_chunk` |
 
 **Callee:**
 
