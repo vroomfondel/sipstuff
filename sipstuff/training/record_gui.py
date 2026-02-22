@@ -13,7 +13,7 @@ Dependencies:
 Usage:
     python record_gui.py
     python record_gui.py --metadata metadata.csv --output ./wavs
-    python record_gui.py --samplerate 22050 --device 3
+    python record_gui.py --samplerate 22050 --input-device 3 --output-device 5
 """
 
 import argparse
@@ -148,14 +148,16 @@ class PlayThread(QThread):
     playback_finished = Signal()
     position_update = Signal(float)  # 0.0 - 1.0
 
-    def __init__(self, filepath: str | Path) -> None:
+    def __init__(self, filepath: str | Path, output_device: int | None = None) -> None:
         """Initialise the playback thread.
 
         Args:
             filepath: Path to the WAV file to play.
+            output_device: sounddevice output device index, or None for the system default.
         """
         super().__init__()
         self.filepath = filepath
+        self.output_device = output_device
         self._running = False
 
     def run(self) -> None:
@@ -193,6 +195,7 @@ class PlayThread(QThread):
                 channels=1 if data.ndim == 1 else data.shape[1],
                 dtype="int16",
                 blocksize=blocksize,
+                device=self.output_device,
                 callback=callback,
             ):
                 while self._running:
@@ -465,7 +468,13 @@ class RecorderWindow(QMainWindow):
     """
 
     def __init__(
-        self, metadata_path: str, output_dir: str, samplerate: int = 22050, channels: int = 1, device: int | None = None
+        self,
+        metadata_path: str,
+        output_dir: str,
+        samplerate: int = 22050,
+        channels: int = 1,
+        input_device: int | None = None,
+        output_device: int | None = None,
     ) -> None:
         """Initialise the recorder window and build the UI.
 
@@ -474,7 +483,8 @@ class RecorderWindow(QMainWindow):
             output_dir: Directory where recorded WAV files will be saved.
             samplerate: Sample rate in Hz used for recording (default: 22050).
             channels: Number of audio channels to record (1 = mono).
-            device: sounddevice input device index, or None for the system default.
+            input_device: sounddevice input device index, or None for the system default.
+            output_device: sounddevice output device index, or None for the system default.
         """
         super().__init__()
 
@@ -482,7 +492,8 @@ class RecorderWindow(QMainWindow):
         self.output_dir = output_dir
         self.samplerate = samplerate
         self.channels = channels
-        self.device = device
+        self.input_device = input_device
+        self.output_device = output_device
 
         self.entries: list[dict[str, str]] = []
         self.current_row = -1
@@ -726,12 +737,18 @@ class RecorderWindow(QMainWindow):
 
         # ── Audio-Device Auswahl (Bottom) ───────────────────────────────
         device_layout = QHBoxLayout()
-        device_layout.addWidget(QLabel("Eingabegerät:"))
 
-        self.device_combo = QComboBox()
-        self._populate_devices()
-        self.device_combo.currentIndexChanged.connect(self._on_device_changed)
-        device_layout.addWidget(self.device_combo, stretch=1)
+        device_layout.addWidget(QLabel("Eingabegerät:"))
+        self.input_device_combo = QComboBox()
+        self._populate_input_devices()
+        self.input_device_combo.currentIndexChanged.connect(self._on_input_device_changed)
+        device_layout.addWidget(self.input_device_combo, stretch=1)
+
+        device_layout.addWidget(QLabel("Ausgabegerät:"))
+        self.output_device_combo = QComboBox()
+        self._populate_output_devices()
+        self.output_device_combo.currentIndexChanged.connect(self._on_output_device_changed)
+        device_layout.addWidget(self.output_device_combo, stretch=1)
 
         main_layout.addLayout(device_layout)
 
@@ -817,28 +834,51 @@ class RecorderWindow(QMainWindow):
 
     # ── Audio-Geräte ────────────────────────────────────────────────────
 
-    def _populate_devices(self) -> None:
+    def _populate_input_devices(self) -> None:
         """Populate the input-device combo box with all devices that have at least one input channel."""
-        self.device_combo.clear()
+        self.input_device_combo.clear()
         devices = sd.query_devices()
         default_idx = sd.default.device[0]
 
-        self.device_combo.addItem(f"System-Standard (#{default_idx})", None)
+        self.input_device_combo.addItem(f"System-Standard (#{default_idx})", None)
 
         for i, dev in enumerate(devices):
             if dev["max_input_channels"] > 0:
                 label = f"[{i}] {dev['name']} ({dev['max_input_channels']}ch)"
-                self.device_combo.addItem(label, i)
-                if self.device is not None and i == self.device:
-                    self.device_combo.setCurrentIndex(self.device_combo.count() - 1)
+                self.input_device_combo.addItem(label, i)
+                if self.input_device is not None and i == self.input_device:
+                    self.input_device_combo.setCurrentIndex(self.input_device_combo.count() - 1)
 
-    def _on_device_changed(self, index: int) -> None:
-        """Slot: update the active device index when the combo box selection changes.
+    def _populate_output_devices(self) -> None:
+        """Populate the output-device combo box with all devices that have at least one output channel."""
+        self.output_device_combo.clear()
+        devices = sd.query_devices()
+        default_idx = sd.default.device[1]
+
+        self.output_device_combo.addItem(f"System-Standard (#{default_idx})", None)
+
+        for i, dev in enumerate(devices):
+            if dev["max_output_channels"] > 0:
+                label = f"[{i}] {dev['name']} ({dev['max_output_channels']}ch)"
+                self.output_device_combo.addItem(label, i)
+                if self.output_device is not None and i == self.output_device:
+                    self.output_device_combo.setCurrentIndex(self.output_device_combo.count() - 1)
+
+    def _on_input_device_changed(self, index: int) -> None:
+        """Slot: update the active input device index when the combo box selection changes.
 
         Args:
             index: The new combo box index (unused; the device ID is read from item data).
         """
-        self.device = self.device_combo.currentData()
+        self.input_device = self.input_device_combo.currentData()
+
+    def _on_output_device_changed(self, index: int) -> None:
+        """Slot: update the active output device index when the combo box selection changes.
+
+        Args:
+            index: The new combo box index (unused; the device ID is read from item data).
+        """
+        self.output_device = self.output_device_combo.currentData()
 
     # ── Statistiken ─────────────────────────────────────────────────────
 
@@ -956,7 +996,7 @@ class RecorderWindow(QMainWindow):
         self.record_thread = RecordThread(
             samplerate=self.samplerate,
             channels=self.channels,
-            device=self.device,
+            device=self.input_device,
         )
         self.record_thread.level_update.connect(self.vu_meter.set_level)
         self.record_thread.finished_recording.connect(self._on_recording_finished)
@@ -1032,7 +1072,7 @@ class RecorderWindow(QMainWindow):
         self.btn_play.clicked.disconnect()
         self.btn_play.clicked.connect(self._stop_playback)
 
-        self.play_thread = PlayThread(wav_path)
+        self.play_thread = PlayThread(wav_path, output_device=self.output_device)
         self.play_thread.position_update.connect(self.waveform.set_playback_pos)
         self.play_thread.playback_finished.connect(self._on_playback_finished)
         self.play_thread.start()
@@ -1112,6 +1152,50 @@ class RecorderWindow(QMainWindow):
 # ─── Main ──────────────────────────────────────────────────────────────────
 
 
+def _list_audio_devices() -> None:
+    """Print all available audio input and output devices, marking the system defaults."""
+    devices = sd.query_devices()
+    default_input = sd.default.device[0]
+    default_output = sd.default.device[1]
+
+    print("\n── Eingabegeräte (Input) ──")
+    for i, dev in enumerate(devices):
+        if dev["max_input_channels"] > 0:
+            marker = " [DEFAULT]" if i == default_input else ""
+            print(f"  [{i}] {dev['name']} ({dev['max_input_channels']}ch, {dev['default_samplerate']:.0f} Hz){marker}")
+
+    print("\n── Ausgabegeräte (Output) ──")
+    for i, dev in enumerate(devices):
+        if dev["max_output_channels"] > 0:
+            marker = " [DEFAULT]" if i == default_output else ""
+            print(f"  [{i}] {dev['name']} ({dev['max_output_channels']}ch, {dev['default_samplerate']:.0f} Hz){marker}")
+    print()
+
+
+def _print_active_devices(input_device: int | None, output_device: int | None) -> None:
+    """Print which input/output devices will be used and exit on invalid device IDs.
+
+    Args:
+        input_device: Explicit input device index or None for system default.
+        output_device: Explicit output device index or None for system default.
+    """
+    try:
+        in_dev = input_device if input_device is not None else sd.default.device[0]
+        info = sd.query_devices(in_dev, "input")
+        print(f"Eingabegerät:  [{in_dev}] {info['name']} ({info['max_input_channels']}ch)")
+    except (sd.PortAudioError, ValueError) as e:
+        print(f"Fehler: Eingabegerät {input_device} nicht gefunden: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        out_dev = output_device if output_device is not None else sd.default.device[1]
+        info = sd.query_devices(out_dev, "output")
+        print(f"Ausgabegerät:  [{out_dev}] {info['name']} ({info['max_output_channels']}ch)")
+    except (sd.PortAudioError, ValueError) as e:
+        print(f"Fehler: Ausgabegerät {output_device} nicht gefunden: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     """Parse CLI arguments and launch the PySide6 dataset recorder GUI."""
     parser = argparse.ArgumentParser(
@@ -1123,14 +1207,22 @@ def main() -> None:
     )
     parser.add_argument("--samplerate", type=int, default=22050, help="Samplerate in Hz (default: 22050)")
     parser.add_argument("--channels", type=int, default=1, help="Kanäle (default: 1)")
-    parser.add_argument("--device", type=int, default=None, help="Audio-Eingabegerät ID")
+    parser.add_argument("--input-device", type=int, default=None, help="Audio-Eingabegerät ID (siehe --list-devices)")
+    parser.add_argument("--output-device", type=int, default=None, help="Audio-Ausgabegerät ID (siehe --list-devices)")
+    parser.add_argument("--list-devices", action="store_true", help="Verfügbare Audio-Geräte auflisten und beenden")
 
     args = parser.parse_args()
+
+    if args.list_devices:
+        _list_audio_devices()
+        sys.exit(0)
 
     if not os.path.isfile(args.metadata):
         parser.error(f"Metadata-Datei nicht gefunden: {args.metadata}")
 
     os.makedirs(args.output, exist_ok=True)
+
+    _print_active_devices(args.input_device, args.output_device)
 
     app = QApplication(sys.argv)
     app.setApplicationName("Piper TTS Recorder")
@@ -1140,7 +1232,8 @@ def main() -> None:
         output_dir=args.output,
         samplerate=args.samplerate,
         channels=args.channels,
-        device=args.device,
+        input_device=args.input_device,
+        output_device=args.output_device,
     )
     window.show()
 
