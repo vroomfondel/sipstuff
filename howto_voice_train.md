@@ -264,17 +264,126 @@ python record_dataset.py --list-devices
 
 ### Umgebung einrichten
 
+Die Piper-Training-Scripts (`piper_train`) sind **nicht** im `piper-tts` pip-Paket enthalten — sie liegen nur im Quellcode-Repository. Außerdem hat `piper-phonemize` (C++-Bibliothek für Phonemisierung) nur vorcompilierte Wheels bis Python 3.11, und die Paket-Versionen müssen exakt aufeinander abgestimmt sein.
+
+Das Setup-Script `setup_my_env.sh` im Piper-Repository automatisiert die gesamte Einrichtung:
+
 ```bash
 git clone https://github.com/rhasspy/piper.git
-cd piper/src/python
-pip install -e .
+cd piper
+./setup_my_env.sh
 ```
+
+Das Script macht folgendes:
+
+1. **pyenv Build-Abhängigkeiten** installieren (libbz2-dev, libssl-dev, etc.)
+2. **Python 3.11** via pyenv installieren (nötig, weil `piper-phonemize` keine Wheels für 3.12+ hat)
+3. **venv** mit Python 3.11 erstellen
+4. **Kompatible Paket-Versionen** pinnen — `pip install -e .` aus dem Piper-Repo zieht inkompatible Versionen, daher werden die Versionen manuell festgelegt
+5. **piper_train** mit `--no-deps` installieren + fehlende Abhängigkeiten einzeln nachinstallieren
+6. **monotonic_align** C-Modul kompilieren (VITS-Alignment, wird von `piper_train` importiert)
+
+<details>
+<summary><b>setup_my_env.sh</b> (Inhalt zum Nachvollziehen)</summary>
+
+```bash
+#!/usr/bin/env bash
+# Setup-Script für Piper TTS Training auf Python 3.11 (via pyenv)
+# Getestet auf Debian Trixie/Sid mit NVIDIA RTX 4090
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_DIR="$SCRIPT_DIR/src/python"
+PYTHON_VERSION=3.11
+
+echo "=== 1/6: pyenv Build-Abhängigkeiten installieren ==="
+sudo apt install -y build-essential libssl-dev zlib1g-dev libbz2-dev \
+  libreadline-dev libsqlite3-dev libncursesw5-dev xz-utils tk-dev \
+  libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+
+echo "=== 2/6: Python $PYTHON_VERSION via pyenv installieren ==="
+if ! command -v pyenv &>/dev/null; then
+  echo "pyenv nicht gefunden. Installiere pyenv..."
+  curl https://pyenv.run | bash
+  export PYENV_ROOT="$HOME/.pyenv"
+  export PATH="$PYENV_ROOT/bin:$PATH"
+  eval "$(pyenv init -)"
+fi
+
+if ! pyenv versions --bare | grep -q "^${PYTHON_VERSION}"; then
+  pyenv install "$PYTHON_VERSION"
+fi
+
+PYTHON_BIN="$(pyenv prefix "$PYTHON_VERSION")/bin/python"
+echo "Verwende: $PYTHON_BIN"
+
+echo "=== 3/6: venv erstellen ==="
+cd "$PYTHON_DIR"
+rm -rf .venv
+"$PYTHON_BIN" -m venv .venv
+source .venv/bin/activate
+
+echo "=== 4/6: Kompatible Pakete installieren ==="
+pip install --upgrade pip wheel setuptools
+pip install \
+  "torch==2.0.1" \
+  "numpy<2" \
+  "pytorch_lightning==1.9.5" \
+  "torchmetrics==0.11.4" \
+  tensorboard \
+  onnxruntime \
+  cython
+
+echo "=== 5/6: piper_train + Abhängigkeiten installieren ==="
+pip install --no-deps -e .
+pip install piper-phonemize librosa
+
+echo "=== 6/6: monotonic_align C-Modul kompilieren ==="
+cd "$PYTHON_DIR/piper_train/vits/monotonic_align"
+if [ -f setup.py ]; then
+  python setup.py build_ext --inplace
+elif [ -f build_monotonic_align.sh ]; then
+  bash build_monotonic_align.sh
+else
+  echo "WARNUNG: monotonic_align build-script nicht gefunden, überspringe."
+fi
+
+echo ""
+echo "=== Fertig! ==="
+echo "Aktiviere die Umgebung mit:"
+echo "  source $PYTHON_DIR/.venv/bin/activate"
+```
+
+</details>
+
+#### Warum nicht einfach `pip install -e .`?
+
+| Problem | Ursache |
+|---------|---------|
+| `piper-phonemize` nicht installierbar | Wheels nur bis Python 3.11, nicht für 3.12+ |
+| `_bz2` / `_lzma` ModuleNotFoundError | pyenv baut Python ohne `libbz2-dev` etc. |
+| NumPy 1.x vs. 2.x Crash | PyTorch 2.0.1 ist gegen NumPy 1.x kompiliert |
+| `_compare_version` ImportError | `torchmetrics` zu neu für `pytorch_lightning` |
+| `TensorProperties` dataclass ValueError | PyTorch zu neu für `pytorch_lightning 1.7` |
+| `monotonic_align` ModuleNotFoundError | C-Erweiterung muss separat kompiliert werden |
 
 ### Pretrained Checkpoint herunterladen
 
 Checkpoints gibt es unter: https://huggingface.co/rhasspy/piper-checkpoints
 
-Für deutsches Finetuning eignet sich der **thorsten**-Checkpoint besonders gut.
+Für deutsches Finetuning eignet sich der **thorsten**-Checkpoint besonders gut:
+
+```bash
+# High-Quality (~951 MB) — größeres Netz, bessere Audioqualität
+wget "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/high/epoch%3D2665-step%3D1182078.ckpt" \
+  -O thorsten-high.ckpt
+
+# Oder Medium (~846 MB) — schneller beim Training und bei der Inferenz
+wget "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/medium/epoch%3D3135-step%3D2702056.ckpt" \
+  -O thorsten-medium.ckpt
+```
+
+**Wichtig:** Die `--quality`-Option beim Training muss zum Checkpoint passen (`high` für den High-Checkpoint, weglassen für Medium).
 
 ### Preprocessing
 
@@ -284,8 +393,11 @@ python -m piper_train.preprocess \
   --input-dir /pfad/zu/deinem/dataset \
   --output-dir /pfad/zu/output \
   --dataset-format ljspeech \
+  --single-speaker \
   --sample-rate 22050
 ```
+
+**`--single-speaker` nicht vergessen!** Ohne dieses Flag erzeugt das Preprocessing eine Multi-Speaker-Konfiguration, die nicht zum Single-Speaker thorsten-Checkpoint passt.
 
 Dies erzeugt im Output-Verzeichnis u.a.:
 
@@ -300,28 +412,56 @@ Dies erzeugt im Output-Verzeichnis u.a.:
 ### Finetuning starten
 
 ```bash
+# Beispiel mit thorsten-high (Checkpoint bei Epoch 2665, +1000 Epochen = 3665)
 python -m piper_train \
   --dataset-dir /pfad/zu/output \
   --accelerator gpu \
   --devices 1 \
   --batch-size 16 \
-  --validation-split 0.05 \
-  --max-epochs 1000 \
-  --resume_from_checkpoint /pfad/zum/pretrained/checkpoint.ckpt \
+  --max_epochs 3665 \
+  --resume_from_checkpoint /pfad/zu/thorsten-high.ckpt \
+  --quality high \
   --precision 32
 ```
 
-Der entscheidende Parameter ist `--resume_from_checkpoint` – damit wird das vortrainierte Modell als Startpunkt verwendet.
+**Wichtige Hinweise:**
+
+| Parameter | Bedeutung |
+|-----------|-----------|
+| `--max_epochs` | **Absolute** Epoch-Zahl, nicht relativ! Checkpoint-Epoch + gewünschte neue Epochen. Thorsten-high startet bei 2665, thorsten-medium bei 3135. |
+| `--quality` | Muss zum Checkpoint passen: `high` für thorsten-high, weglassen (= `medium`) für thorsten-medium. Falsche Qualität → `size mismatch` Fehler. |
+| `--max_epochs` vs. `--max-epochs` | Nur **Unterstrich** (`--max_epochs`) funktioniert, Bindestrich wird nicht erkannt. |
+| `--resume_from_checkpoint` | Damit wird das vortrainierte Modell als Startpunkt verwendet. |
+| `--batch-size` | 16 für ≥12 GB VRAM, 32 für ≥24 GB VRAM (z.B. RTX 4090). |
+
+### Training überwachen
+
+In einem zweiten Terminal:
+
+```bash
+tensorboard --logdir /pfad/zu/output/lightning_logs
+# → http://localhost:6006 im Browser öffnen
+```
+
+Dort sieht man Loss-Kurven und kann generierte Audio-Samples anhören. Die `"audio amplitude out of range, auto clipped"` Warnungen während des Trainings sind normal und harmlos.
 
 ### Export nach ONNX
 
 ```bash
 python -m piper_train.export_onnx \
-  /pfad/zum/trainierten/checkpoint.ckpt \
-  /pfad/zur/ausgabe.onnx
+  /pfad/zu/output/lightning_logs/version_X/checkpoints/epoch=XXXX-step=XXXXXXX.ckpt \
+  /pfad/zur/meine-stimme.onnx
+
+# config.json als .onnx.json kopieren (wird von Piper zum Laden benötigt)
+cp /pfad/zu/output/config.json /pfad/zur/meine-stimme.onnx.json
 ```
 
-Beim Finetuning kann die `.onnx.json` des Basis-Modells einfach kopiert und wiederverwendet werden.
+Testen:
+
+```bash
+echo "Hallo, das ist meine eigene Stimme!" | \
+  piper --model meine-stimme.onnx --output_file test.wav
+```
 
 ---
 
