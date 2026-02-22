@@ -48,7 +48,26 @@ spec:
     # ---- PJSIP Autoanswer + TTS + Transcription -----------------
     - name: pjsip-autoanswer-transcribe
       image: xomoxcc/sipstuff:latest
+      # CUDA:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-noopenvino
+      # OpenVINO: xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-nocuda-openvino
+      # Both:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-openvino
       restartPolicy: Always
+      # --- GPU: uncomment ONE of the following sections ---
+      # CUDA:
+      #   resources:
+      #     limits:
+      #       nvidia.com/gpu: "1"
+      # OpenVINO (Intel GPU):
+      #   securityContext:
+      #     supplementalGroups: [226, 993, 128]
+      #   volumeMounts (add to existing list):
+      #     - name: dri-render
+      #       mountPath: /dev/dri/renderD128
+      # volumes (add to spec.volumes):
+      #   - name: dri-render
+      #     hostPath:
+      #       path: /dev/dri/renderD128
+      #       type: CharDevice
       command: ["sipstuff-cli"]
       args:
         - callee_live-transcribe
@@ -80,8 +99,14 @@ spec:
       env:
         - name: LOG_LEVEL
           value: "3"
+        # PulseAudio:
+        # - name: PULSE_SERVER
+        #   value: "unix:/run/user/1200/pulse/native"
       # die nachfolgenden script-mounts brauchen im Dockerfile das pip install mit "-e"
       volumeMounts:
+        # PulseAudio:
+        # - name: pulse-socket
+        #   mountPath: /run/user/1200/pulse
         - name: tts-realtime-script
           mountPath: /app/sipstuff/realtime/pjsip_realtime_tts.py
           readOnly: true
@@ -99,6 +124,125 @@ spec:
           readOnly: true
         - name: recordings
           mountPath: /recordings
+
+    # ---- PJSIP Autoanswer (TTS only) ------------------------------
+    - name: pjsip-autoanswer
+      image: xomoxcc/sipstuff:latest
+      # CUDA:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-noopenvino
+      # OpenVINO: xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-nocuda-openvino
+      # Both:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-openvino
+      restartPolicy: Always
+      # --- GPU: uncomment ONE of the following sections ---
+      # CUDA:
+      #   resources:
+      #     limits:
+      #       nvidia.com/gpu: "1"
+      # OpenVINO (Intel GPU):
+      #   securityContext:
+      #     supplementalGroups: [226, 993, 128]
+      #   volumeMounts (add to existing list):
+      #     - name: dri-render
+      #       mountPath: /dev/dri/renderD128
+      # volumes (add to spec.volumes):
+      #   - name: dri-render
+      #     hostPath:
+      #       path: /dev/dri/renderD128
+      #       type: CharDevice
+      command: ["sipstuff-cli"]
+      args:
+        - callee_autoanswer
+        - --server
+        - "127.0.0.1"
+        - --user
+        - "1003"
+        - --password
+        - "geheim1003"
+        - --local-port
+        - "5063"
+        - --mode
+        - tts
+        - --piper-model
+        - de_DE-thorsten-high
+        - --tts-data-dir
+        - /piper-models
+        - --tts-text
+        - "Willkommen! Sie sind mit dem automatischen Anrufbeantworter verbunden."
+        - --answer-delay
+        - "1.0"
+      env:
+        - name: LOG_LEVEL
+          value: "3"
+        # PulseAudio:
+        # - name: PULSE_SERVER
+        #   value: "unix:/run/user/1200/pulse/native"
+      volumeMounts:
+        # PulseAudio:
+        # - name: pulse-socket
+        #   mountPath: /run/user/1200/pulse
+        - name: autoanswer-script
+          mountPath: /app/sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py
+          readOnly: true
+        - name: piper-models
+          mountPath: /piper-models
+          readOnly: true
+
+    # ---- PJSIP Realtime TTS ----------------------------------------
+    - name: pjsip-realtime-tts
+      image: xomoxcc/sipstuff:latest
+      # CUDA:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-noopenvino
+      # OpenVINO: xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-nocuda-openvino
+      # Both:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-openvino
+      restartPolicy: Always
+      # --- GPU: uncomment ONE of the following sections ---
+      # CUDA:
+      #   resources:
+      #     limits:
+      #       nvidia.com/gpu: "1"
+      # OpenVINO (Intel GPU):
+      #   securityContext:
+      #     supplementalGroups: [226, 993, 128]
+      #   volumeMounts (add to existing list):
+      #     - name: dri-render
+      #       mountPath: /dev/dri/renderD128
+      # volumes (add to spec.volumes):
+      #   - name: dri-render
+      #     hostPath:
+      #       path: /dev/dri/renderD128
+      #       type: CharDevice
+      command: ["sipstuff-cli"]
+      args:
+        - callee_realtime-tts
+        - --server
+        - "127.0.0.1"
+        - --user
+        - "1004"
+        - --password
+        - "geheim1004"
+        - --local-port
+        - "5064"
+        - --piper-model
+        - /piper-models/de_DE-thorsten-high.onnx
+        - --tts-text
+        - "Willkommen! Sie sind mit dem Echtzeit-TTS-Client verbunden."
+        - --answer-delay
+        - "1.0"
+        - --interactive
+      env:
+        - name: LOG_LEVEL
+          value: "3"
+        # PulseAudio:
+        # - name: PULSE_SERVER
+        #   value: "unix:/run/user/1200/pulse/native"
+      volumeMounts:
+        # PulseAudio:
+        # - name: pulse-socket
+        #   mountPath: /run/user/1200/pulse
+        - name: tts-realtime-script
+          mountPath: /app/sipstuff/realtime/pjsip_realtime_tts.py
+          readOnly: true
+        - name: piper-models
+          mountPath: /piper-models
+          readOnly: true
   volumes:
     - name: conf-pjsip
       hostPath:
@@ -140,3 +284,8 @@ spec:
       hostPath:
         path: ../sipstuff_data.local/recordings_callee
         type: Directory
+    # PulseAudio:
+    # - name: pulse-socket
+    #   hostPath:
+    #     path: /run/user/1000/pulse
+    #     type: Directory

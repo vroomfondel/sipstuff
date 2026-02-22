@@ -35,10 +35,6 @@ else
   readonly DOCKER_IMAGE_LATEST=""
 fi
 
-echo DOCKER_IMAGE: $DOCKER_IMAGE
-echo DOCKER_IMAGE_LATEST: $DOCKER_IMAGE_LATEST
-exit 123
-
 readonly PLATFORMS=("linux/amd64" "linux/arm64")
 readonly DOCKERFILE=../Dockerfile
 readonly DOCKER_BUILD_CONTEXT=$(dirname "$(realpath --relative-to="${SCRIPT_DIR}" "${SCRIPT_DIR}/${DOCKERFILE}")")

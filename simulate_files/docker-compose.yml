@@ -28,6 +28,9 @@ services:
 
   pjsip-autoanswer-transcribe:
     image: xomoxcc/sipstuff:latest
+    # CUDA:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-noopenvino
+    # OpenVINO: xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-nocuda-openvino
+    # Both:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-openvino
     container_name: pjsip-stack-autoanswer-transcribe
     network_mode: host
     restart: on-failure
@@ -36,7 +39,25 @@ services:
         condition: service_healthy
     environment:
       LOG_LEVEL: "3"
+      # PulseAudio:
+      # PULSE_SERVER: unix:/run/user/1200/pulse/native
+    # --- GPU: uncomment ONE of the following sections ---
+    # CUDA:
+    #   deploy:
+    #     resources:
+    #       reservations:
+    #         devices:
+    #           - capabilities: [gpu]
+    # OpenVINO (Intel GPU):
+    #   devices:
+    #     - /dev/dri/renderD128:/dev/dri/renderD128
+    #   group_add:
+    #     - "226"
+    #     - "993"
+    #     - "128"
     volumes:
+      # PulseAudio:
+      # - /run/user/1000/pulse:/run/user/1200/pulse
       - ../sipstuff/realtime/pjsip_realtime_tts.py:/app/sipstuff/realtime/pjsip_realtime_tts.py:ro
       - ../sipstuff/transcribe/pjsip_live_transcribe.py:/app/sipstuff/transcribe/pjsip_live_transcribe.py:ro
       - ../sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py:/app/sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py:ro
@@ -58,3 +79,94 @@ services:
         --stt-data-dir /whisper-models
         --stt-language de
         --transcribe
+
+  pjsip-autoanswer:
+    image: xomoxcc/sipstuff:latest
+    # CUDA:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-noopenvino
+    # OpenVINO: xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-nocuda-openvino
+    # Both:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-openvino
+    container_name: pjsip-stack-autoanswer
+    network_mode: host
+    restart: on-failure
+    depends_on:
+      asterisk:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: "3"
+      # PulseAudio:
+      # PULSE_SERVER: unix:/run/user/1200/pulse/native
+    # --- GPU: uncomment ONE of the following sections ---
+    # CUDA:
+    #   deploy:
+    #     resources:
+    #       reservations:
+    #         devices:
+    #           - capabilities: [gpu]
+    # OpenVINO (Intel GPU):
+    #   devices:
+    #     - /dev/dri/renderD128:/dev/dri/renderD128
+    #   group_add:
+    #     - "226"
+    #     - "993"
+    #     - "128"
+    volumes:
+      # PulseAudio:
+      # - /run/user/1000/pulse:/run/user/1200/pulse
+      - ../sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py:/app/sipstuff/autoanswer/pjsip_autoanswer_tts_n_wav.py:ro
+      - ../sipstuff_data.local/piper-models:/piper-models:ro
+    command: >-
+      sipstuff-cli callee_autoanswer
+        --server 127.0.0.1
+        --user 1003
+        --password geheim1003
+        --local-port 5063
+        --mode tts
+        --piper-model de_DE-thorsten-high
+        --tts-data-dir /piper-models
+        --tts-text "Willkommen! Sie sind mit dem automatischen Anrufbeantworter verbunden."
+        --answer-delay 1.0
+
+  pjsip-realtime-tts:
+    image: xomoxcc/sipstuff:latest
+    # CUDA:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-noopenvino
+    # OpenVINO: xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-nocuda-openvino
+    # Both:    xomoxcc/sipstuff:python-3.14-slim-trixie-pjsip_2.16-cuda-openvino
+    container_name: pjsip-stack-realtime-tts
+    network_mode: host
+    restart: on-failure
+    depends_on:
+      asterisk:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: "3"
+      # PulseAudio:
+      # PULSE_SERVER: unix:/run/user/1200/pulse/native
+    # --- GPU: uncomment ONE of the following sections ---
+    # CUDA:
+    #   deploy:
+    #     resources:
+    #       reservations:
+    #         devices:
+    #           - capabilities: [gpu]
+    # OpenVINO (Intel GPU):
+    #   devices:
+    #     - /dev/dri/renderD128:/dev/dri/renderD128
+    #   group_add:
+    #     - "226"
+    #     - "993"
+    #     - "128"
+    volumes:
+      # PulseAudio:
+      # - /run/user/1000/pulse:/run/user/1200/pulse
+      - ../sipstuff/realtime/pjsip_realtime_tts.py:/app/sipstuff/realtime/pjsip_realtime_tts.py:ro
+      - ../sipstuff_data.local/piper-models:/piper-models:ro
+    command: >-
+      sipstuff-cli callee_realtime-tts
+        --server 127.0.0.1
+        --user 1004
+        --password geheim1004
+        --local-port 5064
+        --piper-model /piper-models/de_DE-thorsten-high.onnx
+        --tts-text "Willkommen! Sie sind mit dem Echtzeit-TTS-Client verbunden."
+        --answer-delay 1.0
+        --interactive
