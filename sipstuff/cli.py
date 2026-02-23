@@ -58,7 +58,6 @@ from sipstuff.sipconfig import (
     RecordingConfig,
     SipCalleeConfig,
     SipCallerConfig,
-    SipEndpointConfig,
     SttConfig,
     TtsConfig,
     TtsPlayConfig,
@@ -175,7 +174,7 @@ def _add_stt_args(parser: argparse.ArgumentParser) -> None:
         "--device",
         dest="device",
         default="cpu",
-        choices=["cpu", "cuda"],
+        choices=["cpu", "cuda", "openvino"],
         help="Compute device (default: cpu)",
     )
     parser.add_argument(
@@ -322,6 +321,64 @@ def _build_sip_overrides(args: argparse.Namespace) -> dict[str, object]:
     return overrides
 
 
+def _build_callee_overrides(args: argparse.Namespace) -> dict[str, object]:
+    """Build a config-override dict for callee subcommands.
+
+    Extends ``_build_sip_overrides`` with callee-specific keys
+    (``auto_answer``, ``answer_delay``) and TTS/STT/VAD overrides
+    so that ``SipCalleeConfig.from_config()`` routes them correctly.
+    """
+    overrides = _build_sip_overrides(args)
+
+    # Callee-specific
+    if hasattr(args, "no_auto_answer"):
+        overrides["auto_answer"] = not args.no_auto_answer
+    if hasattr(args, "answer_delay"):
+        overrides["answer_delay"] = args.answer_delay
+    if getattr(args, "local_port", None) is not None:
+        overrides["local_port"] = args.local_port
+
+    # TTS overrides
+    piper_model = getattr(args, "piper_model", None)
+    if piper_model is not None:
+        overrides["piper_model"] = piper_model
+    tts_data_dir = getattr(args, "tts_data_dir", None)
+    if tts_data_dir is not None:
+        overrides["tts_data_dir"] = tts_data_dir
+    if getattr(args, "tts_cuda", False):
+        overrides["tts_cuda"] = True
+
+    # STT overrides
+    whisper_model = getattr(args, "whisper_model", None)
+    if whisper_model is not None:
+        overrides["stt_model"] = whisper_model
+    stt_backend = getattr(args, "stt_backend", None)
+    if stt_backend is not None:
+        overrides["stt_backend"] = stt_backend
+    stt_device = getattr(args, "device", None)
+    if stt_device is not None:
+        overrides["stt_device"] = stt_device
+    stt_language = getattr(args, "language", None)
+    if stt_language is not None:
+        overrides["stt_language"] = stt_language
+    stt_data_dir = getattr(args, "stt_data_dir", None)
+    if stt_data_dir is not None:
+        overrides["stt_data_dir"] = stt_data_dir
+
+    # STT live overrides
+    stt_live_model = getattr(args, "stt_live_model", None)
+    if stt_live_model is not None:
+        overrides["stt_live_model"] = stt_live_model
+
+    # VAD overrides
+    for vad_key in ("vad_silence_threshold", "vad_silence_trigger", "vad_max_chunk", "vad_min_chunk"):
+        val = getattr(args, vad_key, None)
+        if val is not None:
+            overrides[vad_key] = val
+
+    return overrides
+
+
 # ── Argument parsing ──────────────────────────────────────────────────
 
 
@@ -393,7 +450,7 @@ def parse_args() -> argparse.Namespace:
     )
     stt_parser.add_argument("--model", "-m", help="Whisper model size or HuggingFace model ID (default: medium)")
     stt_parser.add_argument("--language", "-l", default="de", help="Language code for transcription (default: de)")
-    stt_parser.add_argument("--device", choices=["cpu", "cuda"], help="Compute device (default: cpu)")
+    stt_parser.add_argument("--device", choices=["cpu", "cuda", "openvino"], help="Compute device (default: cpu)")
     stt_parser.add_argument("--compute-type", dest="compute_type", help="Quantization type (int8/float16/float32)")
     stt_parser.add_argument(
         "--data-dir",
@@ -1158,12 +1215,10 @@ def cmd_callee_autoanswer(args: argparse.Namespace) -> int:
     from sipstuff.autoanswer.pjsip_autoanswer_tts_n_wav import SipCalleeAutoAnswerCall
     from sipstuff.sip_callee import SipCallee
 
-    overrides = _build_sip_overrides(args)
-    if args.local_port is not None:
-        overrides["local_port"] = args.local_port
+    overrides = _build_callee_overrides(args)
 
     try:
-        config = SipEndpointConfig.from_config(config_path=args.config, overrides=overrides)
+        callee_config = SipCalleeConfig.from_config(config_path=args.config, overrides=overrides)
     except Exception as exc:
         logger.error(f"Configuration error: {exc}")
         return 1
@@ -1193,12 +1248,7 @@ def cmd_callee_autoanswer(args: argparse.Namespace) -> int:
         if not args.tts_text:
             logger.error("--tts-text is required with --mode tts")
             return 1
-        tts_cfg = TtsConfig(
-            model=args.piper_model,
-            sample_rate=16000,
-            data_dir=getattr(args, "tts_data_dir", None),
-            use_cuda=args.tts_cuda,
-        )
+        tts_cfg = callee_config.tts.model_copy(update={"sample_rate": 16000})
         segments.append(
             TtsPlayConfig(tts_text=args.tts_text, tts_config=tts_cfg, pause_before=args.pause_before_content)
         )
@@ -1210,12 +1260,6 @@ def cmd_callee_autoanswer(args: argparse.Namespace) -> int:
         segments.append(WavPlayConfig(wav_path=ensure_wav_16k_mono(args.end_wav), pause_before=args.pause_before_end))
 
     sequence = PlaybackSequence(segments=segments)
-
-    callee_config = SipCalleeConfig(
-        **config.model_dump(),
-        auto_answer=not args.no_auto_answer,
-        answer_delay=args.answer_delay,
-    )
 
     def call_factory(acc: SipCalleeAccount, call_id: int) -> SipCalleeAutoAnswerCall:
         """Create a new auto-answer call instance for an incoming call.
@@ -1256,12 +1300,13 @@ def cmd_callee_realtime_tts(args: argparse.Namespace) -> int:
     from sipstuff.sip_callee import SipCallee
     from sipstuff.tts.live import CLOCK_RATE, PiperTTSProducer, interactive_console
 
-    overrides = _build_sip_overrides(args)
-    if args.local_port is not None:
-        overrides["local_port"] = args.local_port
+    overrides = _build_callee_overrides(args)
+    # piper_live_model is the TTS model for realtime-tts (overrides piper_model)
+    if getattr(args, "piper_live_model", None) is not None:
+        overrides["piper_model"] = args.piper_live_model
 
     try:
-        config = SipEndpointConfig.from_config(config_path=args.config, overrides=overrides)
+        callee_config = SipCalleeConfig.from_config(config_path=args.config, overrides=overrides)
     except Exception as exc:
         logger.error(f"Configuration error: {exc}")
         return 1
@@ -1280,34 +1325,17 @@ def cmd_callee_realtime_tts(args: argparse.Namespace) -> int:
 
     audio_queue: Queue[bytes] = Queue(maxsize=500)
     tts_producer = PiperTTSProducer(
-        tts_config=TtsConfig(
-            model=args.piper_live_model,
-            data_dir=getattr(args, "tts_data_dir", None),
-            use_cuda=args.tts_cuda,
-        ),
+        tts_config=callee_config.tts,
         audio_queue=audio_queue,
         target_rate=CLOCK_RATE,
     )
     tts_producer.start()
 
-    # --- STT / VAD config (optional — all args have defaults from helpers) ---
-    vad_cfg = VadConfig(
-        silence_threshold=args.vad_silence_threshold,
-        silence_trigger=args.vad_silence_trigger,
-        max_chunk=args.vad_max_chunk,
-        min_chunk=args.vad_min_chunk,
-    )
-    stt_cfg = SttConfig(
-        backend=args.stt_backend,
-        model=args.whisper_model,
-        device=args.device,
-        language=args.language,
-        data_dir=getattr(args, "stt_data_dir", None),
-    )
-    live_model_name = args.stt_live_model or args.whisper_model
-    stt_live_cfg = (
-        stt_cfg.model_copy(update={"model": live_model_name}) if live_model_name != args.whisper_model else stt_cfg
-    )
+    # --- STT / VAD config from callee_config ---
+    vad_cfg = callee_config.vad
+    stt_cfg = callee_config.stt
+    stt_live_cfg = callee_config.stt_live
+    assert stt_live_cfg is not None  # guaranteed by model_validator
 
     # Pre-load live STT model at startup (avoids per-call load delay)
     stt_model = None
@@ -1378,12 +1406,6 @@ def cmd_callee_realtime_tts(args: argparse.Namespace) -> int:
             border="*" * 60,
             report=report_json,
         )
-
-    callee_config = SipCalleeConfig(
-        **config.model_dump(),
-        auto_answer=not args.no_auto_answer,
-        answer_delay=args.answer_delay,
-    )
 
     def call_factory(acc: SipCalleeAccount, call_id: int) -> SipCalleeRealtimeTtsCall:
         """Create a new real-time TTS call instance for an incoming call.
@@ -1508,12 +1530,10 @@ def cmd_callee_live_transcribe(args: argparse.Namespace) -> int:
     from sipstuff.stt.live import LiveTranscriptionThread
     from sipstuff.transcribe.pjsip_live_transcribe import SipCalleeLiveTranscribeCall
 
-    overrides = _build_sip_overrides(args)
-    if args.local_port is not None:
-        overrides["local_port"] = args.local_port
+    overrides = _build_callee_overrides(args)
 
     try:
-        config = SipEndpointConfig.from_config(config_path=args.config, overrides=overrides)
+        callee_config = SipCalleeConfig.from_config(config_path=args.config, overrides=overrides)
     except Exception as exc:
         logger.error(f"Configuration error: {exc}")
         return 1
@@ -1532,31 +1552,16 @@ def cmd_callee_live_transcribe(args: argparse.Namespace) -> int:
             return 1
         segments.append(WavPlayConfig(wav_path=ensure_wav_16k_mono(args.wav_file), pause_before=args.play_delay))
     elif args.tts_text:
-        tts_cfg = TtsConfig(model=args.piper_model, sample_rate=16000, data_dir=args.tts_data_dir)
+        tts_cfg = callee_config.tts.model_copy(update={"sample_rate": 16000})
         segments.append(TtsPlayConfig(tts_text=args.tts_text, tts_config=tts_cfg, pause_before=args.play_delay))
 
     sequence = PlaybackSequence(segments=segments)
 
-    # --- Build config objects from CLI args ---
-    vad_cfg = VadConfig(
-        silence_threshold=args.vad_silence_threshold,
-        silence_trigger=args.vad_silence_trigger,
-        max_chunk=args.vad_max_chunk,
-        min_chunk=args.vad_min_chunk,
-    )
-    # Post-call transcription config (used by --transcribe, can be large model)
-    stt_cfg = SttConfig(
-        backend=args.stt_backend,
-        model=args.whisper_model,
-        device=args.device,
-        language=args.language,
-        data_dir=getattr(args, "stt_data_dir", None),
-    )
-    # Live transcription config (pre-loaded at startup, can be a different/smaller model)
-    live_model_name = args.stt_live_model or args.whisper_model
-    stt_live_cfg = (
-        stt_cfg.model_copy(update={"model": live_model_name}) if live_model_name != args.whisper_model else stt_cfg
-    )
+    # --- STT / VAD config from callee_config ---
+    vad_cfg = callee_config.vad
+    stt_cfg = callee_config.stt
+    stt_live_cfg = callee_config.stt_live
+    assert stt_live_cfg is not None  # guaranteed by model_validator
 
     # Pre-load live STT model at startup (avoids per-call load delay)
     stt_model = load_stt_model(stt_live_cfg)
@@ -1709,12 +1714,6 @@ def cmd_callee_live_transcribe(args: argparse.Namespace) -> int:
         call.call_stt = call_stt
         logger.info(f"Per-call STT started for call {call_tracking_id}")
         return call
-
-    callee_config = SipCalleeConfig(
-        **config.model_dump(),
-        auto_answer=not args.no_auto_answer,
-        answer_delay=args.answer_delay,
-    )
 
     with SipCallee(
         callee_config,

@@ -132,6 +132,7 @@ class SipCaller(SipEndpoint):
         recording: RecordingConfig | None = None,
         audio: AudioDeviceConfig | None = None,
         stt: SttConfig | None = None,
+        stt_live: SttConfig | None = None,
         vad: VadConfig | None = None,
         tts_producer: PiperTTSProducer | None = None,
         initial_tts_text: str | None = None,
@@ -154,6 +155,8 @@ class SipCaller(SipEndpoint):
             recording: Recording config.  ``None`` uses ``self.config.recording``.
             audio: Audio device config.  ``None`` uses ``self.config.audio``.
             stt: STT config.  ``None`` uses ``self.config.stt``.
+            stt_live: STT config for live transcription.  ``None`` uses
+                ``self.config.stt_live``.
             vad: VAD config.  ``None`` uses ``self.config.vad``.
 
         Returns:
@@ -176,6 +179,7 @@ class SipCaller(SipEndpoint):
         _recording = recording or self.config.recording
         _audio = audio or self.config.audio
         _stt = stt or self.config.stt
+        _stt_live = stt_live or self.config.stt_live
         _vad = vad or self.config.vad
 
         # Extract scalars from resolved config
@@ -351,7 +355,7 @@ class SipCaller(SipEndpoint):
                     call.start_transcription()
                 _stt_thread = LiveTranscriptionThread(
                     _vad_buffer,
-                    stt_config=_stt,
+                    stt_config=_stt_live,
                 )
                 _stt_thread.start()
                 self._log.info("Live transcription started")

@@ -321,7 +321,7 @@ class SttConfig(BaseModel):
     )
     model: str = Field(default="base", description="Whisper model size")
     language: str | None = Field(default=None, description="Language code for transcription")
-    device: Literal["cpu", "cuda"] = Field(default="cpu", description="Compute device")
+    device: Literal["cpu", "cuda", "openvino"] = Field(default="cpu", description="Compute device")
     compute_type: str | None = Field(default=None, description="Quantization type")
     data_dir: str | None = Field(default=None, description="Model cache directory (None = backend default)")
     live_transcribe: bool = Field(default=False, description="Enable live STT during call")
@@ -473,13 +473,12 @@ class SipEndpointConfig(BaseModel):
                 data["nat"] = nat_data
         return data
 
-    @classmethod
-    def from_config(
-        cls,
+    @staticmethod
+    def _build_config_data(
         config_path: str | Path | None = None,
         overrides: dict[str, Any] | None = None,
-    ) -> Self:
-        """Load a ``SipEndpointConfig`` by merging YAML, environment variables, and overrides.
+    ) -> dict[str, Any]:
+        """Build a merged config dict from YAML file, environment variables, and overrides.
 
         Sources are applied in order (later wins):
             1. YAML config file (if ``config_path`` is given and exists).
@@ -495,11 +494,7 @@ class SipEndpointConfig(BaseModel):
                 (``"stun_servers"``, ``"ice_enabled"``, …).
 
         Returns:
-            A fully validated ``SipEndpointConfig`` instance.
-
-        Raises:
-            pydantic.ValidationError: If required fields are missing or
-                values fail validation.
+            A dict ready to be passed to a config class constructor.
         """
         data: dict[str, Any] = {}
 
@@ -557,6 +552,11 @@ class SipEndpointConfig(BaseModel):
             "SIP_VAD_MIN_CHUNK": ("vad", "min_chunk"),
             "SIP_LIVE_TRANSCRIBE": ("stt", "live_transcribe"),
             "SIP_STT_DATA_DIR": ("stt", "data_dir"),
+            "SIP_STT_LIVE_MODEL": ("stt_live", "model"),
+            "SIP_STT_LIVE_BACKEND": ("stt_live", "backend"),
+            "SIP_STT_LIVE_DEVICE": ("stt_live", "device"),
+            "SIP_STT_LIVE_LANGUAGE": ("stt_live", "language"),
+            "SIP_STT_LIVE_DATA_DIR": ("stt_live", "data_dir"),
             "SIP_TTS_CUDA": ("tts", "use_cuda"),
             "SIP_TTS_DATA_DIR": ("tts", "data_dir"),
             "SIP_AUTO_ANSWER": ("callee", "auto_answer"),
@@ -612,9 +612,66 @@ class SipEndpointConfig(BaseModel):
                     data.setdefault("tts", {})["data_dir"] = val
                 elif key == "stt_data_dir":
                     data.setdefault("stt", {})["data_dir"] = val
+                elif key == "stt_model":
+                    data.setdefault("stt", {})["model"] = val
+                elif key == "stt_backend":
+                    data.setdefault("stt", {})["backend"] = val
+                elif key == "stt_device":
+                    data.setdefault("stt", {})["device"] = val
+                elif key == "stt_language":
+                    data.setdefault("stt", {})["language"] = val
+                elif key == "stt_live_model":
+                    data.setdefault("stt_live", {})["model"] = val
+                elif key == "stt_live_backend":
+                    data.setdefault("stt_live", {})["backend"] = val
+                elif key == "stt_live_device":
+                    data.setdefault("stt_live", {})["device"] = val
+                elif key == "stt_live_language":
+                    data.setdefault("stt_live", {})["language"] = val
+                elif key == "stt_live_data_dir":
+                    data.setdefault("stt_live", {})["data_dir"] = val
+                elif key == "vad_silence_threshold":
+                    data.setdefault("vad", {})["silence_threshold"] = val
+                elif key == "vad_silence_trigger":
+                    data.setdefault("vad", {})["silence_trigger"] = val
+                elif key == "vad_max_chunk":
+                    data.setdefault("vad", {})["max_chunk"] = val
+                elif key == "vad_min_chunk":
+                    data.setdefault("vad", {})["min_chunk"] = val
                 elif key in nat_override_keys:
                     data.setdefault("nat", {})[key] = val
 
+        return data
+
+    @classmethod
+    def from_config(
+        cls,
+        config_path: str | Path | None = None,
+        overrides: dict[str, Any] | None = None,
+    ) -> Self:
+        """Load a ``SipEndpointConfig`` by merging YAML, environment variables, and overrides.
+
+        Sources are applied in order (later wins):
+            1. YAML config file (if ``config_path`` is given and exists).
+            2. ``SIP_*`` environment variables (see ``sipstuff/README.md``).
+            3. ``overrides`` dict (e.g. from CLI arguments).
+
+        Args:
+            config_path: Path to a YAML configuration file.  ``None`` skips
+                file loading.
+            overrides: Key/value overrides applied on top of file and env
+                values.  Keys may be flat SIP field names (``"server"``,
+                ``"timeout"``, ``"piper_model"``, …) or NAT field names
+                (``"stun_servers"``, ``"ice_enabled"``, …).
+
+        Returns:
+            A fully validated config instance of the calling class.
+
+        Raises:
+            pydantic.ValidationError: If required fields are missing or
+                values fail validation.
+        """
+        data = cls._build_config_data(config_path, overrides)
         return cls(**data)
 
 
@@ -637,6 +694,7 @@ class SipCallerConfig(SipEndpointConfig):
         default=None, description="Audio playback source (WAV or TTS)"
     )
     stt: SttConfig = Field(default_factory=SttConfig)
+    stt_live: SttConfig | None = Field(default=None, description="STT config for live transcription (None = use stt)")
     vad: VadConfig = Field(default_factory=VadConfig)
 
     @model_validator(mode="before")
@@ -689,18 +747,100 @@ class SipCallerConfig(SipEndpointConfig):
             self.wav_play = self.wav_play.model_copy(update={"tts_config": self.tts})
         return self
 
+    @model_validator(mode="after")
+    def _resolve_stt_live(self) -> "SipCallerConfig":
+        """Resolve ``stt_live`` from ``stt`` when not explicitly set.
+
+        Ensures ``stt_live`` is always a concrete ``SttConfig`` after
+        construction — callers never need ``if None`` checks.
+
+        Returns:
+            The ``SipCallerConfig`` instance with ``stt_live`` guaranteed
+            to be a concrete ``SttConfig``.
+        """
+        if self.stt_live is None:
+            self.stt_live = self.stt.model_copy()
+        return self
+
 
 class SipCalleeConfig(SipEndpointConfig):
     """Callee (incoming call) behaviour configuration.
 
+    Extends ``SipEndpointConfig`` with callee-specific fields (auto-answer
+    behaviour) and call-level defaults (TTS, STT, VAD) so that
+    ``from_config()`` routes YAML / env / override values for these sections
+    correctly — mirroring the pattern used by ``SipCallerConfig``.
+
     Attributes:
         auto_answer: Whether to automatically answer incoming calls.
         answer_delay: Seconds to wait before answering (allows ring tone).
+        tts: Piper TTS voice model settings.
+        stt: Speech-to-text configuration.
+        vad: Voice activity detection configuration.
     """
 
     auto_answer: bool = Field(default=True, description="Auto-answer incoming calls")
     answer_delay: float = Field(default=1.0, ge=0.0, description="Seconds before answering")
+    tts: TtsConfig = Field(default_factory=TtsConfig)
+    stt: SttConfig = Field(default_factory=SttConfig)
+    stt_live: SttConfig | None = Field(default=None, description="STT config for live transcription (None = use stt)")
+    vad: VadConfig = Field(default_factory=VadConfig)
     # TODO: consider wait_for_silence for callee — requires SilenceDetector hookup in CalleeCall.on_media_active
+
+    @model_validator(mode="before")
+    @classmethod
+    def _flatten_callee_fields(cls, data: Any) -> Any:
+        """Reshape flat callee/tts keys into the nested form.
+
+        Handles:
+        - ``callee.auto_answer`` / ``callee.answer_delay`` → top-level
+        - ``piper_model`` → ``tts.model``, ``tts_sample_rate`` → ``tts.sample_rate``
+
+        Args:
+            data: Raw input data passed to the model validator.
+
+        Returns:
+            The (possibly restructured) dict ready for Pydantic validation.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        # Promote callee section fields to top level
+        callee_section = data.pop("callee", None)
+        if isinstance(callee_section, dict):
+            for key in ("auto_answer", "answer_delay"):
+                if key in callee_section and key not in data:
+                    data[key] = callee_section[key]
+
+        # Flatten TTS shorthand keys (same as SipCallerConfig._flatten_caller_fields)
+        tts_data: dict[str, Any] = {}
+        for k in list(data.keys()):
+            if k == "piper_model":
+                tts_data["model"] = data.pop(k)
+            elif k == "tts_sample_rate":
+                tts_data["sample_rate"] = data.pop(k)
+        if tts_data:
+            if "tts" in data and isinstance(data["tts"], dict):
+                data["tts"].update(tts_data)
+            else:
+                data["tts"] = tts_data
+
+        return data
+
+    @model_validator(mode="after")
+    def _resolve_stt_live(self) -> "SipCalleeConfig":
+        """Resolve ``stt_live`` from ``stt`` when not explicitly set.
+
+        Ensures ``stt_live`` is always a concrete ``SttConfig`` after
+        construction — callers never need ``if None`` checks.
+
+        Returns:
+            The ``SipCalleeConfig`` instance with ``stt_live`` guaranteed
+            to be a concrete ``SttConfig``.
+        """
+        if self.stt_live is None:
+            self.stt_live = self.stt.model_copy()
+        return self
 
     @classmethod
     def from_config(
@@ -710,16 +850,17 @@ class SipCalleeConfig(SipEndpointConfig):
     ) -> "SipCalleeConfig":
         """Load a ``SipCalleeConfig`` by merging YAML, environment variables, and overrides.
 
-        Delegates to ``SipEndpointConfig.from_config`` for shared SIP fields,
-        then constructs a ``SipCalleeConfig`` from the result plus any
-        callee-specific overrides (``auto_answer``, ``answer_delay``).
+        Uses ``_build_config_data`` for the shared YAML → env → override
+        pipeline, then extracts callee-specific override keys
+        (``auto_answer``, ``answer_delay``) and merges them into the data
+        dict before constructing the config.
 
         Args:
             config_path: Path to a YAML configuration file.
             overrides: Key/value overrides.  Callee-specific keys
                 (``"auto_answer"``, ``"answer_delay"``) are extracted and
                 applied to the callee fields; remaining keys are forwarded
-                to ``SipEndpointConfig.from_config``.
+                through ``_build_config_data``.
 
         Returns:
             A fully validated ``SipCalleeConfig`` instance.
@@ -736,5 +877,6 @@ class SipCalleeConfig(SipEndpointConfig):
                 else:
                     remaining[k] = v
 
-        base = SipEndpointConfig.from_config(config_path=config_path, overrides=remaining)
-        return cls(**base.model_dump(), **callee_overrides)
+        data = SipEndpointConfig._build_config_data(config_path=config_path, overrides=remaining)
+        data.update(callee_overrides)
+        return cls(**data)
