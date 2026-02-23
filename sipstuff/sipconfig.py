@@ -104,12 +104,9 @@ class TtsConfig(BaseModel):
     sample_rate: int = Field(default=0, ge=0, le=48000, description="Resample to this rate (0 = keep native)")
     data_dir: str | None = Field(default=None, description="Piper voice model directory (None = default)")
     use_cuda: bool = Field(default=False, description="Use CUDA GPU acceleration for Piper TTS")
-    # TODO: add "live"-parameter for using tts/live.py
-    # make tts/live.py use this TtsConfig -> extend config if need be
-    # TODO: check if defining here if "stream" creation of speach or creating wav-file ?!
-    # Finding: TTS is exclusively file-based. generate_wav() always writes a .wav via subprocess.run(). Streaming TTS lives   │
-    # tts/live.py / PiperTTSProducer and bypasses TtsConfig entirely
-    #   -> TODO: FIX THIS!
+    model_type: Literal["piper"] = Field(
+        default="piper", description="Type of model - at the moment only piper supported."
+    )
 
 
 class NatConfig(BaseModel):
@@ -328,6 +325,9 @@ class SttConfig(BaseModel):
     compute_type: str | None = Field(default=None, description="Quantization type")
     data_dir: str | None = Field(default=None, description="Model cache directory (None = backend default)")
     live_transcribe: bool = Field(default=False, description="Enable live STT during call")
+    model_type: Literal["whisper"] = Field(
+        default="whisper", description="STT model type. At the moment only whisper available."
+    )
 
 
 class VadConfig(BaseModel):
@@ -491,7 +491,7 @@ class SipEndpointConfig(BaseModel):
                 file loading.
             overrides: Key/value overrides applied on top of file and env
                 values.  Keys may be flat SIP field names (``"server"``,
-                ``"timeout"``, ``"tts_model"``, …) or NAT field names
+                ``"timeout"``, ``"piper_model"``, …) or NAT field names
                 (``"stun_servers"``, ``"ice_enabled"``, …).
 
         Returns:
@@ -600,7 +600,7 @@ class SipEndpointConfig(BaseModel):
                     data.setdefault("sip", {})[key] = val
                 elif key in ("timeout", "pre_delay", "post_delay", "inter_delay", "repeat", "wait_for_silence"):
                     data.setdefault("call", {})[key] = val
-                elif key == "tts_model":
+                elif key == "piper_model":
                     data.setdefault("tts", {})["model"] = val
                 elif key == "tts_sample_rate":
                     data.setdefault("tts", {})["sample_rate"] = val
@@ -645,7 +645,7 @@ class SipCallerConfig(SipEndpointConfig):
         """Reshape flat call/tts keys into the nested ``{call: …, tts: …}`` form.
 
         Allows callers to pass ``CallConfig`` fields (``timeout``, ``pre_delay``,
-        …) and TTS shorthand keys (``tts_model``, ``tts_sample_rate``) at the
+        …) and TTS shorthand keys (``piper_model``, ``tts_sample_rate``) at the
         top level instead of nesting them.  No-ops when ``"call"`` is already
         present in ``data``.
 
@@ -664,7 +664,7 @@ class SipCallerConfig(SipEndpointConfig):
         call_data = {k: data.pop(k) for k in list(data.keys()) if k in call_keys}
         tts_data: dict[str, Any] = {}
         for k in list(data.keys()):
-            if k == "tts_model":
+            if k == "piper_model":
                 tts_data["model"] = data.pop(k)
             elif k == "tts_sample_rate":
                 tts_data["sample_rate"] = data.pop(k)

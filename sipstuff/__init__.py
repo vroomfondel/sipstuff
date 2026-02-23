@@ -155,7 +155,7 @@ def make_sip_call(
     post_delay: float = 0.0,
     inter_delay: float = 0.0,
     repeat: int = 1,
-    tts_model: str = "de_DE-thorsten-high",
+    piper_model: str = "de_DE-thorsten-high",
     play_audio: bool = False,
 ) -> bool:
     """Convenience function: register, call, play WAV or TTS, and hang up.
@@ -180,7 +180,7 @@ def make_sip_call(
         post_delay: Seconds to wait after playback completes before hanging up.
         inter_delay: Seconds of silence between WAV repeats.
         repeat: Number of times to play the WAV file.
-        tts_model: Piper voice model name for TTS (auto-downloaded on
+        piper_model: Piper voice model name for TTS (auto-downloaded on
             first use).
         play_audio: If ``True``, play remote-party audio on the local
             sound device via ``sounddevice``.
@@ -212,7 +212,7 @@ def make_sip_call(
             "post_delay": post_delay,
             "inter_delay": inter_delay,
             "repeat": repeat,
-            "tts_model": tts_model,
+            "piper_model": piper_model,
         }
     )
 

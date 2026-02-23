@@ -189,11 +189,11 @@ wget -P piper-models/ \
   https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx.json
 ```
 
-Then update the `--piper-model` path in `pjsip-stack.yaml`:
+Then update the `--piper-live-model` value in `pjsip-stack.yaml`:
 
 ```yaml
-- --piper-model
-- /models/en_US-lessac-high.onnx
+- --piper-live-model
+- en_US-lessac-high
 ```
 
 ## Troubleshooting

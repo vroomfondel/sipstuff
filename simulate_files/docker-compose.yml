@@ -167,7 +167,8 @@ services:
         --user 1004
         --password geheim1004
         --local-port 5064
-        --piper-model /piper-models/de_DE-thorsten-high.onnx
+        --piper-live-model de_DE-thorsten-high
+        --tts-data-dir /piper-models
         --tts-text "Willkommen! Sie sind mit dem Echtzeit-TTS-Client verbunden."
         --answer-delay 1.0
         --interactive

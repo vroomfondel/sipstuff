@@ -622,7 +622,7 @@ python -m sipstuff.cli call \
     --user 1001 --password secret \
     --dest +491234567890 \
     --text "Houston, wir haben ein Problem." \
-    --tts-model de_DE-thorsten-high \
+    --piper-model de_DE-thorsten-high \
     --pre-delay 3.0 --post-delay 1.0 --inter-delay 2.1 --repeat 3 \
     --wait-for-silence 1.0 \
     --timeout 60 \
@@ -635,7 +635,7 @@ python -m sipstuff.cli call --dest 1002 --wav announcement.wav \
 # Interactive live TTS — type text during the call that gets spoken in real-time
 python -m sipstuff.cli call --dest +491234567890 \
     --interactive \
-    --piper-model /path/to/de_DE-thorsten-high.onnx \
+    --piper-live-model de_DE-thorsten-high \
     --text "Hallo, hier spricht die Maschine." \
     --play-audio --play-tx --real-capture -v
 
@@ -666,7 +666,7 @@ python -m sipstuff.cli call --config sip.yaml --dest +491234567890 --wav alert.w
 | Argument | Description |
 |----------|-------------|
 | `--wav`, `-w` | Path to WAV file to play |
-| `--interactive` | Interactive live TTS mode: type text in the console during the call (requires `--piper-model`) |
+| `--interactive` | Interactive live TTS mode: type text in the console during the call (requires `--piper-live-model`) |
 | `--text` | Text to synthesize via piper TTS, or initial greeting in interactive mode |
 
 **Call timing:**
@@ -687,8 +687,8 @@ python -m sipstuff.cli call --config sip.yaml --dest +491234567890 --wav alert.w
 |----------|-------------|
 | `--record` | Record remote-party audio to this WAV path |
 | `--audio-socket` | Unix domain socket path for live PCM streaming |
-| `--tts-model` | Piper voice model name (for pre-generated TTS) |
-| `--piper-model` | Path to Piper `.onnx` model for live TTS in interactive mode |
+| `--piper-model` | Piper voice model name (for pre-generated TTS) |
+| `--piper-live-model` | Piper voice model for live TTS in interactive mode |
 | `--tts-sample-rate` | Resample TTS output to this rate |
 | `--tts-data-dir` | Directory for piper voice models |
 | `--transcribe` | Transcribe recorded audio and write a JSON call report (requires `--record`) |

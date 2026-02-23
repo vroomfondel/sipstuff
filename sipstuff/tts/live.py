@@ -24,7 +24,7 @@ from loguru import logger
 from piper import PiperVoice
 
 from sipstuff.audio import resample_linear
-from sipstuff.tts.tts import TtsModelInfo
+from sipstuff.sipconfig import TtsConfig
 
 try:
     import pjsua2 as pj
@@ -60,7 +60,7 @@ class PiperTTSProducer:
     end-of-speech sentinel that the consumer can use to insert pauses.
 
     Example:
-        producer = PiperTTSProducer(model_path, audio_queue)
+        producer = PiperTTSProducer(tts_config, audio_queue)
         producer.start()
         producer.speak("Hello world.")   # non-blocking
         producer.speak("Another line.") # queued, processed in order
@@ -69,29 +69,23 @@ class PiperTTSProducer:
 
     def __init__(
         self,
-        model_path: str,
+        tts_config: TtsConfig,
         audio_queue: "Queue[bytes]",
         target_rate: int = CLOCK_RATE,
-        tts_model_info: TtsModelInfo | None = None,
-        use_cuda: bool = False,
     ):
         """Initialize the producer.
 
         Args:
-            model_path: Path to the Piper ONNX voice model file.
+            tts_config: TTS configuration with model name, data directory, and
+                CUDA flag.  The model is resolved and loaded via
+                ``load_tts_model()`` when ``start()`` is called.
             audio_queue: Shared queue into which synthesized PCM chunks are placed.
             target_rate: Target PCM sample rate in Hz.  Audio is resampled to
                 this rate when the Piper model's native rate differs.
-            tts_model_info: Optional pre-loaded model metadata.  When provided,
-                the PiperVoice instance and model path are taken from this object
-                instead of loading from ``model_path``.
-            use_cuda: Use CUDA GPU acceleration for Piper TTS.
         """
-        self.model_path = model_path
+        self._tts_config = tts_config
         self.audio_queue = audio_queue
         self.target_rate = target_rate
-        self._tts_model_info = tts_model_info
-        self._use_cuda = use_cuda
 
         self.text_queue: "Queue[str | None]" = Queue()
         self._thread: Optional[threading.Thread] = None
@@ -101,18 +95,12 @@ class PiperTTSProducer:
 
     def start(self) -> None:
         """Load the Piper voice model and start the producer thread."""
-        if self._tts_model_info is not None:
-            self._voice = self._tts_model_info.voice
-            self.model_path = str(self._tts_model_info.model_path)
-        else:
-            import os
+        from sipstuff.tts.tts import load_tts_model
 
-            if not os.path.isfile(self.model_path):
-                self._log.error(f"Piper-Modell nicht gefunden: {self.model_path}")
-                sys.exit(1)
-            self._voice = PiperVoice.load(self.model_path, use_cuda=self._use_cuda)
+        info = load_tts_model(self._tts_config)
+        self._voice = info.voice
 
-        self._log.info(f"Piper-Modell: {self.model_path}")
+        self._log.info(f"Piper-Modell: {info.model_path}")
 
         self._running = True
         self._thread = threading.Thread(target=self._run, daemon=True, name="TTS-Producer")
@@ -216,7 +204,7 @@ class PiperTTSProducer:
 # ============================================================
 
 
-class TTSMediaPort(pj.AudioMediaPort if PJSUA2_AVAILABLE else object):  # type: ignore[misc]
+class TTSMediaPort(pj.AudioMediaPort):  # type: ignore[misc]
     """PJSUA2 AudioMediaPort consumer that drains PCM chunks from a queue.
 
     PJSIP calls ``onFrameRequested()`` every 20 ms expecting exactly
@@ -225,7 +213,7 @@ class TTSMediaPort(pj.AudioMediaPort if PJSUA2_AVAILABLE else object):  # type: 
     receives valid audio.
     """
 
-    def __init__(self, audio_queue: "Queue[bytes]"):
+    def __init__(self, audio_queue: "Queue[bytes]", num_frames_silence: int = 8):
         """Initialize the media port and pre-compute the silence frame.
 
         Args:
@@ -236,7 +224,7 @@ class TTSMediaPort(pj.AudioMediaPort if PJSUA2_AVAILABLE else object):  # type: 
         if PJSUA2_AVAILABLE:
             pj.AudioMediaPort.__init__(self)
         self.audio_queue = audio_queue
-        self._silence = b"\x00" * (SAMPLES_PER_FRAME * 2)  # 16-bit Stille
+        self._silence = b"\x00" * (SAMPLES_PER_FRAME * num_frames_silence)  # 16-bit Stille
 
     def onFrameRequested(self, frame: "pj.MediaFrame") -> None:  # noqa: N802
         """Supply the next audio frame to PJSIP.

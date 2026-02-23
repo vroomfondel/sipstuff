@@ -175,7 +175,7 @@ python sipstuff/realtime/pjsip_realtime_tts.py [OPTIONS]
 |---|---|---|---|
 | `--tts-text TEXT` | str | None | Text spoken immediately when a call is answered |
 | `--interactive` | flag | off | Enable interactive console mode |
-| `--piper-model PATH` | str | `./de_DE-thorsten-high.onnx` | Path to the Piper `.onnx` voice model file |
+| `--piper-live-model MODEL` | str | `de_DE-thorsten-high` | Piper voice model |
 
 ### SIP Connection Arguments
 
@@ -205,7 +205,7 @@ python -m sipstuff.realtime.pjsip_realtime_tts \
     --sip-user 1001 \
     --sip-password secret \
     --tts-text "Welcome! Please hold the line." \
-    --piper-model /models/de_DE-thorsten-high.onnx
+    --piper-live-model de_DE-thorsten-high
 
 # Interactive mode — type text while on a call:
 python -m sipstuff.realtime.pjsip_realtime_tts \
@@ -213,7 +213,7 @@ python -m sipstuff.realtime.pjsip_realtime_tts \
     --sip-user 1001 \
     --sip-password secret \
     --interactive \
-    --piper-model /models/de_DE-thorsten-high.onnx
+    --piper-live-model de_DE-thorsten-high
 
 # Combination: play an initial greeting, then accept further input:
 python -m sipstuff.realtime.pjsip_realtime_tts \
@@ -222,7 +222,7 @@ python -m sipstuff.realtime.pjsip_realtime_tts \
     --sip-password secret \
     --tts-text "Hello! I am ready." \
     --interactive \
-    --piper-model /models/de_DE-thorsten-high.onnx
+    --piper-live-model de_DE-thorsten-high
 
 # Slow-answer mode (3-second ring before pick-up):
 python -m sipstuff.realtime.pjsip_realtime_tts \
@@ -231,7 +231,7 @@ python -m sipstuff.realtime.pjsip_realtime_tts \
     --sip-password hunter2 \
     --answer-delay 3.0 \
     --tts-text "Thank you for calling." \
-    --piper-model ./en_US-lessac-high.onnx
+    --piper-live-model en_US-lessac-high
 
 # Using environment variables instead of CLI flags:
 export SIP_SERVER=pbx.example.com
@@ -239,7 +239,7 @@ export SIP_USER=2001
 export SIP_PASSWORD=hunter2
 python -m sipstuff.realtime.pjsip_realtime_tts \
     --tts-text "Hello from env config." \
-    --piper-model ./en_US-lessac-high.onnx
+    --piper-live-model en_US-lessac-high
 ```
 
 ---
@@ -283,7 +283,7 @@ python -m sipstuff.realtime.pjsip_realtime_tts \
 ### Piper TTS Binary
 
 `piper-tts` (≥1.4.0) is installed as a Python dependency via pip. A Piper voice model (`.onnx`
-file plus its `.onnx.json` config sidecar) must be provided separately via `--piper-model`.
+file plus its `.onnx.json` config sidecar) must be provided separately via `--piper-live-model`.
 
 ---
 

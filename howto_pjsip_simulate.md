@@ -76,13 +76,13 @@ Kernkomponenten:
 Drei Modi:
 ```bash
 # Feste Ansage
-python pjsip_realtime_tts.py --tts-text "Willkommen!" --piper-model ./de_DE-thorsten-high.onnx
+python pjsip_realtime_tts.py --tts-text "Willkommen!" --piper-live-model de_DE-thorsten-high
 
 # Interaktiv (Text per Konsole eingeben → live gesprochen)
-python pjsip_realtime_tts.py --interactive --piper-model ./de_DE-thorsten-high.onnx
+python pjsip_realtime_tts.py --interactive --piper-live-model de_DE-thorsten-high
 
 # Beides kombiniert
-python pjsip_realtime_tts.py --tts-text "Hallo!" --interactive --piper-model ./de_DE-thorsten-high.onnx
+python pjsip_realtime_tts.py --tts-text "Hallo!" --interactive --piper-live-model de_DE-thorsten-high
 ```
 
 ---

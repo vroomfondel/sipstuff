@@ -56,6 +56,8 @@ fi
 
 set +x
 
+PIPER_MODEL="${PIPER_MODEL:-de_DE-thorsten-high}"
+
 podman run --rm -it --userns=keep-id:uid=1200,gid=1201 \
   "${SND_DEVICE_FLAGS[@]}" \
   "${GPU_FLAGS[@]}" \
@@ -74,7 +76,7 @@ podman run --rm -it --userns=keep-id:uid=1200,gid=1201 \
     --user 1001 \
     --password geheim1001 \
     --local-port 5062 \
-    --piper-model de_DE-thorsten-high \
+    --piper-model "${PIPER_MODEL}" \
     --tts-data-dir /piper-models \
     --tts-text "Willkommen! Sie sind mit dem automatischen Anrufbeantworter verbunden. ... Bitte hinterlassen Sie eine Nachricht nach dem Signalton." \
     --wav-dir /recordings \

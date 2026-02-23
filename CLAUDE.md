@@ -24,7 +24,7 @@ make pypibuild        # hatch build --clean
 
 Activate venv manually: `source .venv/bin/activate`
 
-Run CLI: `python -m sipstuff.cli {call,tts,stt,callee_autoanswer,callee_realtime-tts,callee_live-transcribe} [args...]` or `sipstuff-cli ...` (installed entry point). The `call` subcommand supports `--interactive` mode for live console TTS during outgoing calls (requires `--piper-model`).
+Run CLI: `python -m sipstuff.cli {call,tts,stt,callee_autoanswer,callee_realtime-tts,callee_live-transcribe} [args...]` or `sipstuff-cli ...` (installed entry point). The `call` subcommand supports `--interactive` mode for live console TTS during outgoing calls (requires `--piper-live-model`).
 
 **Note:** `pjsua2` is not pip-installable — it must be built from PJSIP C source via `dist_scripts/install_pjsip.sh` (or the Dockerfile handles it). No tests directory exists yet; `pytest .` passes vacuously.
 

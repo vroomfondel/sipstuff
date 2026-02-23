@@ -429,12 +429,14 @@ def parse_args() -> argparse.Namespace:
     )
 
     # TTS options
-    call_parser.add_argument("--tts-model", dest="tts_model", help="Piper voice model (default: de_DE-thorsten-high)")
     call_parser.add_argument(
-        "--piper-model",
-        dest="piper_model",
+        "--piper-model", dest="piper_model", help="Piper voice model name (default: de_DE-thorsten-high)"
+    )
+    call_parser.add_argument(
+        "--piper-live-model",
+        dest="piper_live_model",
         default=None,
-        help="Path to Piper .onnx model for live TTS in interactive mode (default: ./de_DE-thorsten-high.onnx)",
+        help="Piper voice model name for live TTS in interactive mode (default: de_DE-thorsten-high)",
     )
     call_parser.add_argument(
         "--tts-sample-rate", dest="tts_sample_rate", type=int, help="Resample TTS output to this rate (default: native)"
@@ -693,10 +695,15 @@ def parse_args() -> argparse.Namespace:
     rt_parser.add_argument("--tts-text", dest="tts_text", help="Initial TTS text spoken on call answer")
     rt_parser.add_argument("--interactive", action="store_true", help="Interactive mode: type text in the console")
     rt_parser.add_argument(
-        "--piper-model",
-        dest="piper_model",
-        default="./de_DE-thorsten-high.onnx",
-        help="Path to Piper .onnx model (default: ./de_DE-thorsten-high.onnx)",
+        "--piper-live-model",
+        dest="piper_live_model",
+        default="de_DE-thorsten-high",
+        help="Piper voice model for live TTS (default: de_DE-thorsten-high)",
+    )
+    rt_parser.add_argument(
+        "--tts-data-dir",
+        dest="tts_data_dir",
+        help="Directory for piper voice models (default: ~/.local/share/piper-voices)",
     )
     rt_parser.add_argument(
         "--tts-cuda",
@@ -800,20 +807,12 @@ def cmd_tts(args: argparse.Namespace) -> int:
         from sipstuff.audio import SounddeviceQueuePlayer
         from sipstuff.sipconfig import TtsConfig
         from sipstuff.tts.live import PiperTTSProducer, interactive_console
-        from sipstuff.tts.tts import load_tts_model
-
-        try:
-            info = load_tts_model(TtsConfig(model=args.model, data_dir=args.tts_data_dir, use_cuda=args.tts_cuda))
-        except TtsError as exc:
-            logger.error(f"TTS model load failed: {exc}")
-            return 1
 
         audio_queue: Queue[bytes] = Queue(maxsize=500)
         producer = PiperTTSProducer(
-            model_path="",
+            tts_config=TtsConfig(model=args.model, data_dir=args.tts_data_dir, use_cuda=args.tts_cuda),
             audio_queue=audio_queue,
             target_rate=16000,
-            tts_model_info=info,
         )
         producer.start()
         player = SounddeviceQueuePlayer(audio_queue, audio_device=_audio_device)
@@ -941,7 +940,7 @@ def cmd_call(args: argparse.Namespace) -> int:
         "inter_delay",
         "repeat",
         "wait_for_silence",
-        "tts_model",
+        "piper_model",
         "tts_sample_rate",
     ):
         val = getattr(args, key, None)
@@ -977,8 +976,8 @@ def cmd_call(args: argparse.Namespace) -> int:
     elif wav_path:
         wav_play_override = WavPlayConfig(wav_path=wav_path)
 
-    if _interactive and not getattr(args, "piper_model", None):
-        logger.error("--interactive requires --piper-model (path to Piper .onnx model)")
+    if _interactive and not getattr(args, "piper_live_model", None):
+        logger.error("--interactive requires --piper-live-model (Piper voice model name)")
         return 1
 
     if args.transcribe and not args.record_path:
@@ -1042,10 +1041,13 @@ def cmd_call(args: argparse.Namespace) -> int:
 
         _audio_queue: Queue[bytes] = Queue(maxsize=500)
         _tts_producer = PiperTTSProducer(
-            model_path=args.piper_model,
+            tts_config=TtsConfig(
+                model=args.piper_live_model,
+                data_dir=tts_data_dir or config.tts.data_dir,
+                use_cuda=config.tts.use_cuda,
+            ),
             audio_queue=_audio_queue,
             target_rate=CLOCK_RATE,
-            use_cuda=config.tts.use_cuda,
         )
         _tts_producer.start()
 
@@ -1106,7 +1108,7 @@ def cmd_call(args: argparse.Namespace) -> int:
                 "destination": args.dest,
                 "wav_file": args.wav or "(tts)",
                 "tts_text": args.text,
-                "tts_model": config.tts.model,
+                f"tts_model[{config.tts.model_type}]": config.tts.model,
                 "record_path": args.record_path,
                 "call_duration": call_result.call_duration if call_result else None,
                 "answered": call_result.answered if call_result else None,
@@ -1278,10 +1280,13 @@ def cmd_callee_realtime_tts(args: argparse.Namespace) -> int:
 
     audio_queue: Queue[bytes] = Queue(maxsize=500)
     tts_producer = PiperTTSProducer(
-        model_path=args.piper_model,
+        tts_config=TtsConfig(
+            model=args.piper_live_model,
+            data_dir=getattr(args, "tts_data_dir", None),
+            use_cuda=args.tts_cuda,
+        ),
         audio_queue=audio_queue,
         target_rate=CLOCK_RATE,
-        use_cuda=args.tts_cuda,
     )
     tts_producer.start()
 

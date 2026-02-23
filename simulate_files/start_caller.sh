@@ -62,6 +62,8 @@ fi
 
 set +x
 
+PIPER_MODEL="${PIPER_MODEL:-de_DE-thorsten-high}"
+
 podman run --network=host -it --rm \
   --userns=keep-id:uid=1200,gid=1201 \
   "${SND_DEVICE_FLAGS[@]}" \
@@ -71,6 +73,7 @@ podman run --network=host -it --rm \
   python3 -m sipstuff.cli call \
   --stt-data-dir /data/whisper-models \
   --tts-data-dir /data/piper-models \
+  --piper-model "${PIPER_MODEL}" \
   --server 127.0.0.1 \
   --port 5060 \
   --transport udp \

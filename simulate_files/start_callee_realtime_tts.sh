@@ -61,6 +61,8 @@ fi
 
 set +x
 
+PIPER_MODEL="${PIPER_MODEL:-de_DE-thorsten-high}"
+
 podman run --rm -it --userns=keep-id:uid=1200,gid=1201 \
   "${SND_DEVICE_FLAGS[@]}" \
   "${GPU_FLAGS[@]}" \
@@ -76,7 +78,8 @@ podman run --rm -it --userns=keep-id:uid=1200,gid=1201 \
     --user 1004 \
     --password geheim1004 \
     --local-port 5064 \
-    --piper-model /piper-models/de_DE-thorsten-high.onnx \
+    --piper-live-model "${PIPER_MODEL}" \
+    --tts-data-dir /piper-models \
     --tts-text "Willkommen! Sie sind mit dem Echtzeit-TTS-Client verbunden." \
     --answer-delay 1.0 \
     --interactive \

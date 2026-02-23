@@ -174,7 +174,7 @@ python -m sipstuff.cli call \
     --server pbx.local --user 1000 --password secret \
     --dest +491234567890 \
     --text "Achtung! Wasserstand kritisch!" \
-    --tts-model de_DE-thorsten-high --tts-sample-rate 8000
+    --piper-model de_DE-thorsten-high --tts-sample-rate 8000
 
 # Wait for callee to finish speaking before playback
 python -m sipstuff.cli call \
@@ -233,7 +233,7 @@ python -m sipstuff.cli call \
     --server 192.168.1.100 --user 1001 --password secret \
     --dest +491234567890 \
     --interactive \
-    --piper-model /path/to/de_DE-thorsten-high.onnx \
+    --piper-live-model de_DE-thorsten-high \
     --text "Hallo, hier spricht die Maschine." \
     --play-audio --play-tx --real-capture -v
 
@@ -275,15 +275,15 @@ When `--transcribe` is used with `--record`, a JSON call report is written next 
 | Flag | Description |
 |------|-------------|
 | `--wav`, `-w` | Path to WAV file to play (mutually exclusive with `--interactive`) |
-| `--interactive` | Interactive live TTS mode: type text in the console that gets spoken via Piper TTS during the call (mutually exclusive with `--wav`, requires `--piper-model`) |
+| `--interactive` | Interactive live TTS mode: type text in the console that gets spoken via Piper TTS during the call (mutually exclusive with `--wav`, requires `--piper-live-model`) |
 
 **TTS:**
 
 | Flag | Description |
 |------|-------------|
 | `--text` | Text to synthesize via piper TTS, or initial greeting in interactive mode |
-| `--tts-model` | Piper voice model for pre-generated TTS (default: `de_DE-thorsten-high`) |
-| `--piper-model` | Path to Piper `.onnx` model for live TTS in interactive mode |
+| `--piper-model` | Piper voice model for pre-generated TTS (default: `de_DE-thorsten-high`) |
+| `--piper-live-model` | Piper voice model for live TTS in interactive mode |
 | `--tts-sample-rate` | Resample TTS output to this rate in Hz (default: native/22050) |
 | `--tts-data-dir` | Directory for piper voice models (default: `~/.local/share/piper-voices`) |
 | `--tts-cuda` | Use CUDA GPU acceleration for Piper TTS |
@@ -410,13 +410,13 @@ Answer incoming calls and speak text in real-time via Piper TTS:
 python -m sipstuff.cli callee_realtime-tts \
     --server pbx.local --user 1001 --password secret \
     --tts-text "Willkommen, wie kann ich Ihnen helfen?" \
-    --piper-model /path/to/de_DE-thorsten-high.onnx
+    --piper-live-model de_DE-thorsten-high
 
 # Interactive mode — type text during the call
 python -m sipstuff.cli callee_realtime-tts \
     --server pbx.local --user 1001 --password secret \
     --interactive \
-    --piper-model /path/to/de_DE-thorsten-high.onnx
+    --piper-live-model de_DE-thorsten-high
 ```
 
 **TTS & playback:**
@@ -425,7 +425,7 @@ python -m sipstuff.cli callee_realtime-tts \
 |------|-------------|
 | `--tts-text` | Initial TTS text spoken on answer |
 | `--interactive` | Interactive mode: type text in the console that gets spoken live |
-| `--piper-model` | Path to Piper `.onnx` model (default: `./de_DE-thorsten-high.onnx`) |
+| `--piper-live-model` | Piper voice model (default: `de_DE-thorsten-high`) |
 | `--tts-cuda` | Use CUDA GPU acceleration for Piper TTS |
 | `--wav-file` | WAV file to play at call start |
 | `--play-delay` | Seconds to wait before playback (default: 0.0) |

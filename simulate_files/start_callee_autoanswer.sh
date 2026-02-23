@@ -53,6 +53,8 @@ fi
 
 set +x
 
+PIPER_MODEL="${PIPER_MODEL:-de_DE-thorsten-high}"
+
 podman run --rm -it --userns=keep-id:uid=1200,gid=1201 \
   "${SND_DEVICE_FLAGS[@]}" \
   "${GPU_FLAGS[@]}" \
@@ -68,7 +70,7 @@ podman run --rm -it --userns=keep-id:uid=1200,gid=1201 \
     --password geheim1003 \
     --local-port 5063 \
     --mode tts \
-    --piper-model de_DE-thorsten-high \
+    --piper-model "${PIPER_MODEL}" \
     --tts-data-dir /piper-models \
     --tts-text "Willkommen! Sie sind mit dem automatischen Anrufbeantworter verbunden." \
     --answer-delay 1.0
