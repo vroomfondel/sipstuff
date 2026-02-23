@@ -85,7 +85,7 @@ fi
 
 
 # Training parameters
-MAX_EPOCHS=4000              # Absolute: checkpoint epoch (499) + desired additional epochs
+ADDITIONAL_EPOCHS=8000       # How many epochs to train beyond the checkpoint
 BATCH_SIZE=32                # RTX 4090 (24 GB): 16–32 for high quality
 VOICE_NAME="de_DE-meine-stimme-high"
 
@@ -109,6 +109,20 @@ fi
 if [ ! -f "$PIPER1_GPL_DIR/.venv/bin/activate" ]; then
   echo "ERROR: piper1-gpl venv not found. Run $PIPER1_GPL_DIR/setup_my_env.sh first."
   exit 1
+fi
+
+# Compute absolute max_epochs from checkpoint epoch + ADDITIONAL_EPOCHS
+if [ "$CKPT_MODE" = "resume" ]; then
+  # Extract epoch number from checkpoint filename (e.g. epoch=499-step=123456.ckpt → 499)
+  CKPT_EPOCH="$(basename "$CHECKPOINT" | grep -oP '(?<=epoch=)\d+')"
+  if [ -z "$CKPT_EPOCH" ]; then
+    echo "ERROR: Could not extract epoch from checkpoint filename: $CHECKPOINT"
+    exit 1
+  fi
+  MAX_EPOCHS=$(( CKPT_EPOCH + ADDITIONAL_EPOCHS ))
+else
+  # Warmstart: epoch counter starts at 0
+  MAX_EPOCHS=$ADDITIONAL_EPOCHS
 fi
 
 mkdir -p "$CACHE_DIR" "$OUTPUT_DIR"
