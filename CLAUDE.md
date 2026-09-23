@@ -136,3 +136,19 @@ Key flags: `DH_REPO_PUBLIC` / `GH_REPO_PUBLIC` (default `true`) control DockerHu
 - Logging via **loguru** with `classname` binding
 - **Type annotations**: Always use concrete types instead of `Any`. This includes container types — use e.g. `list[str]`, `dict[str, int]`, `Sequence[CallConfig]` instead of `list[Any]`, `dict[str, Any]`, etc. `Any` should only be used as a last resort when the type is truly unknowable (e.g. untyped third-party APIs).
 - Pre-commit hooks (`fail_fast: true`): check-yaml, black --check, mypy, gitleaks
+
+## Code Comments
+
+- Default: no comment. A comment has to earn its line.
+- **One line maximum** per comment, except a file header. No multi-line prose blocks.
+- A comment may state a *constraint* (what breaks, which version, which upstream issue).
+  It may NOT explain motivation, history, alternatives considered, or what the cluster
+  currently runs. That belongs in the task file, the testlog, or a `*_BUG.md`.
+- Banned openings: "This is how ...", "Without it ...", "We do/don't ...", "Note that ...",
+  "The reason ...".
+- No comment referring to volatile state (current model, current workload, current tag).
+- No comments that restate what the line already says.
+- No docstrings unless explicitly asked for.
+- No section banners (`// ---- Helper ----`).
+- No meta comments about the editing process itself ("newly added", "adjusted as requested").
+- When in doubt: no comment.
