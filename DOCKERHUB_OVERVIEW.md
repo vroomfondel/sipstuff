@@ -174,7 +174,8 @@ podman run --network=host -it --rm --userns=keep-id:uid=1200,gid=1201 \
 ```
 
 Notes:
-- `--network=host` is needed for SIP/RTP media traffic.
+- `--network=host` is needed for SIP/RTP media traffic. Parallel containers on one host share its port space; RTP binds a random even port in 4000–4200 by default (`SIP_RTP_PORT` / `SIP_RTP_PORT_RANGE`, `SIP_RTP_RANDOMIZE_PORT=false` for a fixed start port).
+- Use absolute `--record` paths on a mounted volume (e.g. `/data/recordings/...`) — the working directory `/app` is not writable.
 - `--userns=keep-id:uid=1200,gid=1201` maps the container's `pythonuser` to your host user (rootless Podman).
 - The container runs as non-root `pythonuser` (UID 1200).
 - Use `--tts-sample-rate 8000` to resample TTS output for narrowband SIP.
@@ -194,6 +195,9 @@ Key environment variables:
 | `SIP_PASSWORD` | SIP password |
 | `SIP_TRANSPORT` | `udp`, `tcp`, or `tls` |
 | `SIP_SRTP` | `disabled`, `optional`, or `mandatory` |
+| `SIP_RTP_PORT` | RTP start port (default: 4000, `0` = OS-assigned) |
+| `SIP_RTP_PORT_RANGE` | RTP port window width (default: 200) |
+| `SIP_RTP_RANDOMIZE_PORT` | Random start offset inside the RTP window (default: `true`) |
 | `SIP_TTS_CUDA` | Use CUDA GPU acceleration for Piper TTS |
 | `SIP_TTS_DATA_DIR` | Directory for piper voice models |
 | `SIP_STT_BACKEND` | STT backend: `faster-whisper` or `openvino` |
