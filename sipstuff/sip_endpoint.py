@@ -61,6 +61,9 @@ class _PjLogWriter(pj.LogWriter):  # type: ignore[misc]
         """
         level = self._PJ_TO_LOGURU.get(entry.level, "DEBUG")
         msg = entry.msg.rstrip("\n")
+        # pjsip retries the next port itself; only "Unable to create RTP/RTCP socket" is fatal.
+        if level == "ERROR" and "RTP socket bind()" in msg:
+            level = "WARNING"
         if msg:
             self._buffer.append(msg)
             self._log.log(level, "{}", msg)

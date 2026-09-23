@@ -277,8 +277,9 @@ class SipCallerCall(SipCall):
             return False
         try:
             if self.wav_player is None:
-                self.wav_player = pj.AudioMediaPlayer()
-                self.wav_player.createPlayer(self._wav_path, pj.PJMEDIA_FILE_NO_LOOP)
+                player = pj.AudioMediaPlayer()
+                player.createPlayer(self._wav_path, pj.PJMEDIA_FILE_NO_LOOP)
+                self.wav_player = player
                 self.wav_player.startTransmit(self._audio_media)
                 if self.tx_stream_port is not None:
                     self.wav_player.startTransmit(self.tx_stream_port)
@@ -338,8 +339,9 @@ class SipCallerCall(SipCall):
             return False
         try:
             if self.audio_recorder is None:
-                self.audio_recorder = pj.AudioMediaRecorder()
-                self.audio_recorder.createRecorder(self._record_path)
+                recorder = pj.AudioMediaRecorder()
+                recorder.createRecorder(self._record_path)
+                self.audio_recorder = recorder
             self._audio_media.startTransmit(self.audio_recorder)
             logger.info(f"Recording remote audio to: {self._record_path}")
             return True
@@ -380,8 +382,9 @@ class SipCallerCall(SipCall):
             return False
         try:
             if self.tx_recorder is None:
-                self.tx_recorder = pj.AudioMediaRecorder()
-                self.tx_recorder.createRecorder(self._record_tx_path)
+                tx_recorder = pj.AudioMediaRecorder()
+                tx_recorder.createRecorder(self._record_tx_path)
+                self.tx_recorder = tx_recorder
                 ep = pj.Endpoint.instance()
                 ep.audDevManager().getCaptureDevMedia().startTransmit(self.tx_recorder)
             logger.info(f"Recording local (TX) audio to: {self._record_tx_path}")

@@ -72,7 +72,8 @@ def _add_sip_connection_args(parser: argparse.ArgumentParser) -> None:
     """Add SIP connection arguments shared by call and callee subcommands.
 
     Registers ``--config``, ``--server``, ``--port``, ``--user``,
-    ``--password``, ``--transport``, ``--srtp``, and ``--tls-verify``
+    ``--password``, ``--transport``, ``--srtp``, ``--tls-verify``,
+    ``--rtp-port``, ``--rtp-port-range``, and ``--no-rtp-randomize``
     on the given parser.
 
     Args:
@@ -93,6 +94,17 @@ def _add_sip_connection_args(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         default=None,
         help="Verify TLS server certificate",
+    )
+    parser.add_argument("--rtp-port", dest="rtp_port", type=int, help="RTP start port, 0 = OS-assigned (default: 4000)")
+    parser.add_argument(
+        "--rtp-port-range", dest="rtp_port_range", type=int, help="RTP port window width (default: 200)"
+    )
+    parser.add_argument(
+        "--no-rtp-randomize",
+        dest="rtp_randomize_port",
+        action="store_false",
+        default=None,
+        help="Always start at --rtp-port instead of a random offset inside the RTP port window",
     )
 
 
@@ -293,6 +305,9 @@ def _build_sip_overrides(args: argparse.Namespace) -> dict[str, object]:
         "transport",
         "srtp",
         "tls_verify_server",
+        "rtp_port",
+        "rtp_port_range",
+        "rtp_randomize_port",
         "ice_enabled",
         "turn_server",
         "turn_username",

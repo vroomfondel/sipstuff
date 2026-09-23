@@ -25,7 +25,7 @@ import os
 import sys
 from pathlib import Path
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 from typing import Any, Callable, Dict
 

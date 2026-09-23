@@ -31,6 +31,11 @@ class SipConfig(BaseModel):
             (``"disabled"``, ``"optional"``, or ``"mandatory"``).
         tls_verify_server: Whether to verify the TLS server certificate.
         local_port: Local bind port for SIP (0 = auto-assigned).
+        rtp_port: RTP start port (0 = OS-assigned ephemeral port).
+        rtp_port_range: Width of the RTP port window above ``rtp_port``
+            (0 = no upper bound, pjsip then probes up to 100 port pairs).
+        rtp_randomize_port: Start at a random even offset inside the RTP
+            port window instead of always at ``rtp_port``.
     """
 
     server: str = Field(description="PBX hostname or IP address")
@@ -41,6 +46,15 @@ class SipConfig(BaseModel):
     srtp: Literal["disabled", "optional", "mandatory"] = Field(default="disabled", description="SRTP media encryption")
     tls_verify_server: bool = Field(default=False, description="Verify TLS server certificate")
     local_port: int = Field(default=0, ge=0, le=65535, description="Local bind port (0 = auto)")
+    rtp_port: int = Field(default=4000, ge=0, le=65535, description="RTP start port (0 = OS-assigned)")
+    rtp_port_range: int = Field(default=200, ge=0, le=65535, description="RTP port window width (0 = unbounded)")
+    rtp_randomize_port: bool = Field(default=True, description="Random start offset inside the RTP port window")
+
+    @model_validator(mode="after")
+    def _check_rtp_window(self) -> Self:
+        if self.rtp_port + self.rtp_port_range > 65535:
+            raise ValueError(f"rtp_port + rtp_port_range exceeds 65535 ({self.rtp_port} + {self.rtp_port_range})")
+        return self
 
 
 class CallConfig(BaseModel):
@@ -452,7 +466,19 @@ class SipEndpointConfig(BaseModel):
         if "sip" in data:
             return data
         # Try to build from flat keys (CLI / env var usage)
-        sip_keys = {"server", "port", "user", "password", "transport", "srtp", "tls_verify_server", "local_port"}
+        sip_keys = {
+            "server",
+            "port",
+            "user",
+            "password",
+            "transport",
+            "srtp",
+            "tls_verify_server",
+            "local_port",
+            "rtp_port",
+            "rtp_port_range",
+            "rtp_randomize_port",
+        }
         if sip_keys & set(data.keys()):
             sip_data = {k: data.pop(k) for k in list(data.keys()) if k in sip_keys}
             nat_keys = {
@@ -516,6 +542,9 @@ class SipEndpointConfig(BaseModel):
             "SIP_SRTP": ("sip", "srtp"),
             "SIP_TLS_VERIFY_SERVER": ("sip", "tls_verify_server"),
             "SIP_LOCAL_PORT": ("sip", "local_port"),
+            "SIP_RTP_PORT": ("sip", "rtp_port"),
+            "SIP_RTP_PORT_RANGE": ("sip", "rtp_port_range"),
+            "SIP_RTP_RANDOMIZE_PORT": ("sip", "rtp_randomize_port"),
             "SIP_TIMEOUT": ("call", "timeout"),
             "SIP_PRE_DELAY": ("call", "pre_delay"),
             "SIP_POST_DELAY": ("call", "post_delay"),
@@ -596,6 +625,9 @@ class SipEndpointConfig(BaseModel):
                     "srtp",
                     "tls_verify_server",
                     "local_port",
+                    "rtp_port",
+                    "rtp_port_range",
+                    "rtp_randomize_port",
                 ):
                     data.setdefault("sip", {})[key] = val
                 elif key in ("timeout", "pre_delay", "post_delay", "inter_delay", "repeat", "wait_for_silence"):

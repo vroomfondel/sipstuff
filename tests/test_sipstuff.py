@@ -55,6 +55,35 @@ class TestSipConfig:
         assert cfg.transport == "tcp"
         assert cfg.local_port == 15060
 
+    def test_rtp_defaults(self) -> None:
+        cfg = SipConfig(server="pbx", user="u", password="p")
+        assert cfg.rtp_port == 4000
+        assert cfg.rtp_port_range == 200
+        assert cfg.rtp_randomize_port is True
+
+    def test_rtp_window_exceeds_port_space(self) -> None:
+        with pytest.raises(Exception):
+            SipConfig(server="pbx", user="u", password="p", rtp_port=65000, rtp_port_range=1000)
+
+    def test_rtp_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("SIP_SERVER", "pbx")
+        monkeypatch.setenv("SIP_USER", "u")
+        monkeypatch.setenv("SIP_PASSWORD", "p")
+        monkeypatch.setenv("SIP_RTP_PORT", "10000")
+        monkeypatch.setenv("SIP_RTP_PORT_RANGE", "500")
+        monkeypatch.setenv("SIP_RTP_RANDOMIZE_PORT", "false")
+        cfg = SipCallerConfig.from_config()
+        assert cfg.sip.rtp_port == 10000
+        assert cfg.sip.rtp_port_range == 500
+        assert cfg.sip.rtp_randomize_port is False
+
+    def test_rtp_overrides(self) -> None:
+        cfg = SipCallerConfig.from_config(
+            overrides={"server": "pbx", "user": "u", "password": "p", "rtp_port": 0, "rtp_randomize_port": False}
+        )
+        assert cfg.sip.rtp_port == 0
+        assert cfg.sip.rtp_randomize_port is False
+
     def test_invalid_port_too_high(self) -> None:
         with pytest.raises(Exception):
             SipConfig(server="pbx", user="u", password="p", port=99999)

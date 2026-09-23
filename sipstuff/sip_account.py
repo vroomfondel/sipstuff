@@ -67,6 +67,10 @@ class SipAccount(pj.Account):  # type: ignore[misc]
         # Bind RTP/media sockets to the correct interface (avoids SDP
         # advertising the wrong IP on multi-homed hosts).
         acfg.mediaConfig.transportConfig.boundAddress = local_ip
+        # hostNetwork pods share one port space; a random start offset avoids every job racing for rtp_port.
+        acfg.mediaConfig.transportConfig.port = config.sip.rtp_port
+        acfg.mediaConfig.transportConfig.portRange = config.sip.rtp_port_range
+        acfg.mediaConfig.transportConfig.randomizePort = config.sip.rtp_randomize_port
         if config.nat.public_address:
             acfg.mediaConfig.transportConfig.publicAddress = config.nat.public_address
 
