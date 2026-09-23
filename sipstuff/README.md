@@ -83,59 +83,59 @@ pjsip_common.py  (used only by experimental subpackages: transcribe/, realtime/,
 
 ### `sip_caller.py`
 
-| Name | Type | Purpose |
-|------|------|---------|
-| `SipCaller` | class (context manager) | High-level PJSUA2 engine: endpoint lifecycle, account registration, call placement |
-| `SipCall` | class (`pj.Call` subclass) | PJSUA2 call callbacks; bridges C++ events to Python `threading.Event` objects |
-| `SipAccount` | class (`pj.Account` subclass) | Encapsulates SIP account registration, SRTP, ICE, TURN, keepalive |
-| `SilenceDetector` | class (`pj.AudioMediaPort` subclass) | RMS-based silence detector; signals when continuous silence exceeds a threshold |
-| `AudioStreamPort` | class (`pj.AudioMediaPort` subclass) | Streams raw PCM frames to a Unix domain socket |
-| `_PjLogWriter` | class (`pj.LogWriter` subclass) | Routes native PJSIP logs through loguru and buffers them for JSON reports |
-| `CallResult` | dataclass | Result metadata for a completed call (success, timestamps, disconnect reason) |
-| `WavInfo` | class | Reads and validates WAV file metadata |
-| `SipCallError` | exception | Raised on SIP registration, transport, or WAV playback errors |
-| `_local_address_for()` | function | Resolves local IP for a given remote host via no-send UDP connect |
+| Name                   | Type                                 | Purpose                                                                            |
+|------------------------|--------------------------------------|------------------------------------------------------------------------------------|
+| `SipCaller`            | class (context manager)              | High-level PJSUA2 engine: endpoint lifecycle, account registration, call placement |
+| `SipCall`              | class (`pj.Call` subclass)           | PJSUA2 call callbacks; bridges C++ events to Python `threading.Event` objects      |
+| `SipAccount`           | class (`pj.Account` subclass)        | Encapsulates SIP account registration, SRTP, ICE, TURN, keepalive                  |
+| `SilenceDetector`      | class (`pj.AudioMediaPort` subclass) | RMS-based silence detector; signals when continuous silence exceeds a threshold    |
+| `AudioStreamPort`      | class (`pj.AudioMediaPort` subclass) | Streams raw PCM frames to a Unix domain socket                                     |
+| `_PjLogWriter`         | class (`pj.LogWriter` subclass)      | Routes native PJSIP logs through loguru and buffers them for JSON reports          |
+| `CallResult`           | dataclass                            | Result metadata for a completed call (success, timestamps, disconnect reason)      |
+| `WavInfo`              | class                                | Reads and validates WAV file metadata                                              |
+| `SipCallError`         | exception                            | Raised on SIP registration, transport, or WAV playback errors                      |
+| `_local_address_for()` | function                             | Resolves local IP for a given remote host via no-send UDP connect                  |
 
 ### `sipconfig.py`
 
-| Name | Type | Purpose |
-|------|------|---------|
-| `SipCallerConfig` | Pydantic model | Top-level config aggregating four sub-models |
-| `SipConfig` | Pydantic model | SIP server connection settings (server, port, user, password, transport, SRTP) |
-| `CallConfig` | Pydantic model | Call timing and playback settings (timeout, delays, repeat, silence wait) |
-| `TtsConfig` | Pydantic model | Piper TTS voice model and sample rate |
-| `NatConfig` | Pydantic model | STUN, ICE, TURN, keepalive, public address override |
-| `load_config()` | function | Merges YAML file + environment variables + Python overrides into a validated config |
+| Name              | Type           | Purpose                                                                             |
+|-------------------|----------------|-------------------------------------------------------------------------------------|
+| `SipCallerConfig` | Pydantic model | Top-level config aggregating four sub-models                                        |
+| `SipConfig`       | Pydantic model | SIP server connection settings (server, port, user, password, transport, SRTP)      |
+| `CallConfig`      | Pydantic model | Call timing and playback settings (timeout, delays, repeat, silence wait)           |
+| `TtsConfig`       | Pydantic model | Piper TTS voice model and sample rate                                               |
+| `NatConfig`       | Pydantic model | STUN, ICE, TURN, keepalive, public address override                                 |
+| `load_config()`   | function       | Merges YAML file + environment variables + Python overrides into a validated config |
 
 ### `tts/tts.py`
 
-| Name | Type | Purpose |
-|------|------|---------|
-| `generate_wav()` | function | Synthesize text to a WAV file via piper Python API |
-| `TtsError` | exception | Raised when piper is not found or synthesis fails |
+| Name             | Type      | Purpose                                            |
+|------------------|-----------|----------------------------------------------------|
+| `generate_wav()` | function  | Synthesize text to a WAV file via piper Python API |
+| `TtsError`       | exception | Raised when piper is not found or synthesis fails  |
 
 ### `stt/stt.py`
 
-| Name | Type | Purpose |
-|------|------|---------|
-| `transcribe_wav()` | function | Transcribe a WAV file to text with faster-whisper |
-| `SttError` | exception | Raised when faster-whisper is absent or transcription fails |
+| Name               | Type      | Purpose                                                     |
+|--------------------|-----------|-------------------------------------------------------------|
+| `transcribe_wav()` | function  | Transcribe a WAV file to text with faster-whisper           |
+| `SttError`         | exception | Raised when faster-whisper is absent or transcription fails |
 
 ### `audio.py`
 
-| Name | Type | Purpose |
-|------|------|---------|
+| Name                | Type     | Purpose                                                         |
+|---------------------|----------|-----------------------------------------------------------------|
 | `resample_linear()` | function | Resample a 1-D float audio array via numpy linear interpolation |
 
 ### `pjsip_common.py`
 
-| Name | Type | Purpose |
-|------|------|---------|
-| `add_sip_args()` | function | Add `--sip-*` argument group to an `argparse.ArgumentParser` |
-| `create_endpoint()` | function | Create and initialise a PJSUA2 `Endpoint` |
-| `create_transport()` | function | Create a UDP transport on a PJSUA2 `Endpoint` |
-| `use_null_audio()` | function | Activate the null audio device for headless operation |
-| `ensure_wav_16k_mono()` | function | Convert a WAV file to 16 kHz / mono / 16-bit PCM |
+| Name                    | Type     | Purpose                                                      |
+|-------------------------|----------|--------------------------------------------------------------|
+| `add_sip_args()`        | function | Add `--sip-*` argument group to an `argparse.ArgumentParser` |
+| `create_endpoint()`     | function | Create and initialise a PJSUA2 `Endpoint`                    |
+| `create_transport()`    | function | Create a UDP transport on a PJSUA2 `Endpoint`                |
+| `use_null_audio()`      | function | Activate the null audio device for headless operation        |
+| `ensure_wav_16k_mono()` | function | Convert a WAV file to 16 kHz / mono / 16-bit PCM             |
 
 ---
 
@@ -252,26 +252,26 @@ with SipCaller(config) as caller:
 
 **Constructor parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `config` | `SipCallerConfig` | required | Validated configuration |
-| `pjsip_log_level` | `int \| None` | env `PJSIP_LOG_LEVEL` or 3 | PJSIP log verbosity routed to loguru (0=none, 6=trace) |
-| `pjsip_console_level` | `int \| None` | env `PJSIP_CONSOLE_LEVEL` or 4 | PJSIP native console output level; set 0 to suppress |
+| Parameter             | Type              | Default                        | Description                                            |
+|-----------------------|-------------------|--------------------------------|--------------------------------------------------------|
+| `config`              | `SipCallerConfig` | required                       | Validated configuration                                |
+| `pjsip_log_level`     | `int \| None`     | env `PJSIP_LOG_LEVEL` or 3     | PJSIP log verbosity routed to loguru (0=none, 6=trace) |
+| `pjsip_console_level` | `int \| None`     | env `PJSIP_CONSOLE_LEVEL` or 4 | PJSIP native console output level; set 0 to suppress   |
 
 **`make_call()` parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `destination` | `str` | required | Phone number or full SIP URI |
-| `wav_file` | `str \| Path` | required | WAV file to play on answer |
-| `timeout` | `int \| None` | config value | Seconds to wait for answer |
-| `pre_delay` | `float \| None` | config value | Seconds to wait after answer before playback |
-| `post_delay` | `float \| None` | config value | Seconds to wait after playback before hangup |
-| `inter_delay` | `float \| None` | config value | Seconds of silence between repeats |
-| `repeat` | `int \| None` | config value | Number of times to play the WAV |
-| `record_path` | `str \| Path \| None` | `None` | Record remote audio to this WAV path |
-| `wait_for_silence` | `float \| None` | config value | Wait for N seconds of remote silence before playback |
-| `audio_socket_path` | `str \| None` | `None` | Unix socket path for live PCM streaming |
+| Parameter           | Type                  | Default      | Description                                          |
+|---------------------|-----------------------|--------------|------------------------------------------------------|
+| `destination`       | `str`                 | required     | Phone number or full SIP URI                         |
+| `wav_file`          | `str \| Path`         | required     | WAV file to play on answer                           |
+| `timeout`           | `int \| None`         | config value | Seconds to wait for answer                           |
+| `pre_delay`         | `float \| None`       | config value | Seconds to wait after answer before playback         |
+| `post_delay`        | `float \| None`       | config value | Seconds to wait after playback before hangup         |
+| `inter_delay`       | `float \| None`       | config value | Seconds of silence between repeats                   |
+| `repeat`            | `int \| None`         | config value | Number of times to play the WAV                      |
+| `record_path`       | `str \| Path \| None` | `None`       | Record remote audio to this WAV path                 |
+| `wait_for_silence`  | `float \| None`       | config value | Wait for N seconds of remote silence before playback |
+| `audio_socket_path` | `str \| None`         | `None`       | Unix socket path for live PCM streaming              |
 
 ### `SipCall` — PJSUA2 call callbacks
 
@@ -279,11 +279,11 @@ Subclasses `pj.Call` and bridges PJSIP C++ callbacks to Python
 `threading.Event` objects so `SipCaller.make_call()` can synchronously
 wait on call and media state.
 
-| Event | Set when |
-|-------|----------|
-| `connected_event` | Call enters CONFIRMED state (answered) |
-| `disconnected_event` | Call enters DISCONNECTED state |
-| `media_ready_event` | An active audio media channel is available |
+| Event                | Set when                                   |
+|----------------------|--------------------------------------------|
+| `connected_event`    | Call enters CONFIRMED state (answered)     |
+| `disconnected_event` | Call enters DISCONNECTED state             |
+| `media_ready_event`  | An active audio media channel is available |
 
 Key methods:
 
@@ -421,11 +421,11 @@ reports when `--transcribe` is used.
 
 | PJSIP level | loguru level |
 |-------------|--------------|
-| 1 | ERROR |
-| 2 | WARNING |
-| 3 | INFO |
-| 4 | DEBUG |
-| 5, 6 | TRACE |
+| 1           | ERROR        |
+| 2           | WARNING      |
+| 3           | INFO         |
+| 4           | DEBUG        |
+| 5, 6        | TRACE        |
 
 ### `CallResult` dataclass
 
@@ -488,49 +488,52 @@ validation.
 
 #### `SipConfig` — SIP connection
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `server` | `str` | required | PBX hostname or IP address |
-| `port` | `int` | `5060` | SIP port (1–65535) |
-| `user` | `str` | required | SIP extension / username |
-| `password` | `str` | required | SIP authentication password |
-| `transport` | `"udp" \| "tcp" \| "tls"` | `"udp"` | SIP transport protocol |
-| `srtp` | `"disabled" \| "optional" \| "mandatory"` | `"disabled"` | SRTP media encryption |
-| `tls_verify_server` | `bool` | `False` | Verify TLS server certificate |
-| `local_port` | `int` | `0` | Local bind port (0 = auto-assigned) |
+| Field                | Type                                      | Default      | Description                                                                                                    |
+|----------------------|-------------------------------------------|--------------|----------------------------------------------------------------------------------------------------------------|
+| `server`             | `str`                                     | required     | PBX hostname or IP address                                                                                     |
+| `port`               | `int`                                     | `5060`       | SIP port (1–65535)                                                                                             |
+| `user`               | `str`                                     | required     | SIP extension / username                                                                                       |
+| `password`           | `str`                                     | required     | SIP authentication password                                                                                    |
+| `transport`          | `"udp" \| "tcp" \| "tls"`                 | `"udp"`      | SIP transport protocol                                                                                         |
+| `srtp`               | `"disabled" \| "optional" \| "mandatory"` | `"disabled"` | SRTP media encryption                                                                                          |
+| `tls_verify_server`  | `bool`                                    | `False`      | Verify TLS server certificate                                                                                  |
+| `local_port`         | `int`                                     | `0`          | Local bind port (0 = auto-assigned)                                                                            |
+| `rtp_port`           | `int`                                     | `4000`       | RTP start port (0 = OS-assigned ephemeral port)                                                                |
+| `rtp_port_range`     | `int`                                     | `200`        | RTP port window width above `rtp_port` (0 = unbounded)                                                         |
+| `rtp_randomize_port` | `bool`                                    | `True`       | Start at a random even offset inside the RTP window (avoids collisions between parallel processes on one host) |
 
 #### `CallConfig` — call timing
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `timeout` | `int` | `60` | Max seconds to wait for answer (1–600) |
-| `pre_delay` | `float` | `0.0` | Seconds to wait after answer before playback (0–30) |
-| `post_delay` | `float` | `0.0` | Seconds to wait after playback before hangup (0–30) |
-| `inter_delay` | `float` | `0.0` | Seconds of silence between WAV repeats (0–30) |
-| `repeat` | `int` | `1` | Number of times to play the WAV (1–100) |
-| `wait_for_silence` | `float` | `0.0` | Seconds of remote silence to wait for before playback (0–10); 0 = disabled |
+| Field              | Type    | Default | Description                                                                |
+|--------------------|---------|---------|----------------------------------------------------------------------------|
+| `timeout`          | `int`   | `60`    | Max seconds to wait for answer (1–600)                                     |
+| `pre_delay`        | `float` | `0.0`   | Seconds to wait after answer before playback (0–30)                        |
+| `post_delay`       | `float` | `0.0`   | Seconds to wait after playback before hangup (0–30)                        |
+| `inter_delay`      | `float` | `0.0`   | Seconds of silence between WAV repeats (0–30)                              |
+| `repeat`           | `int`   | `1`     | Number of times to play the WAV (1–100)                                    |
+| `wait_for_silence` | `float` | `0.0`   | Seconds of remote silence to wait for before playback (0–10); 0 = disabled |
 
 #### `TtsConfig` — Piper TTS
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `model` | `str` | `"de_DE-thorsten-high"` | Piper voice model name (auto-downloaded on first use) |
-| `sample_rate` | `int` | `0` | Resample TTS output to this rate in Hz; 0 = keep native (~22050 Hz) |
+| Field         | Type  | Default                 | Description                                                         |
+|---------------|-------|-------------------------|---------------------------------------------------------------------|
+| `model`       | `str` | `"de_DE-thorsten-high"` | Piper voice model name (auto-downloaded on first use)               |
+| `sample_rate` | `int` | `0`                     | Resample TTS output to this rate in Hz; 0 = keep native (~22050 Hz) |
 
 #### `NatConfig` — NAT traversal
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `stun_servers` | `list[str]` | `[]` | STUN servers for public IP discovery (`host:port`) |
-| `stun_ignore_failure` | `bool` | `True` | Continue startup if STUN is unreachable |
-| `ice_enabled` | `bool` | `False` | Enable ICE connectivity checks for media |
-| `turn_enabled` | `bool` | `False` | Enable TURN relay (requires `turn_server`) |
-| `turn_server` | `str` | `""` | TURN relay address (`host:port`) |
-| `turn_username` | `str` | `""` | TURN authentication username |
-| `turn_password` | `str` | `""` | TURN authentication password |
-| `turn_transport` | `"udp" \| "tcp" \| "tls"` | `"udp"` | TURN transport protocol |
-| `keepalive_sec` | `int` | `0` | UDP keepalive interval in seconds (0 = disabled) |
-| `public_address` | `str` | `""` | Public IP to advertise in SDP `c=` and Contact headers |
+| Field                 | Type                      | Default | Description                                            |
+|-----------------------|---------------------------|---------|--------------------------------------------------------|
+| `stun_servers`        | `list[str]`               | `[]`    | STUN servers for public IP discovery (`host:port`)     |
+| `stun_ignore_failure` | `bool`                    | `True`  | Continue startup if STUN is unreachable                |
+| `ice_enabled`         | `bool`                    | `False` | Enable ICE connectivity checks for media               |
+| `turn_enabled`        | `bool`                    | `False` | Enable TURN relay (requires `turn_server`)             |
+| `turn_server`         | `str`                     | `""`    | TURN relay address (`host:port`)                       |
+| `turn_username`       | `str`                     | `""`    | TURN authentication username                           |
+| `turn_password`       | `str`                     | `""`    | TURN authentication password                           |
+| `turn_transport`      | `"udp" \| "tcp" \| "tls"` | `"udp"` | TURN transport protocol                                |
+| `keepalive_sec`       | `int`                     | `0`     | UDP keepalive interval in seconds (0 = disabled)       |
+| `public_address`      | `str`                     | `""`    | Public IP to advertise in SDP `c=` and Contact headers |
 
 ---
 
@@ -561,14 +564,14 @@ python -m sipstuff.cli tts "Text" -o out.wav \
     --data-dir /mnt/models/piper-voices
 ```
 
-| Argument | Description |
-|----------|-------------|
-| `text` | Text to synthesize (positional) |
-| `--output`, `-o` | Output WAV file path (required) |
-| `--model`, `-m` | Piper voice model name (default: `de_DE-thorsten-high`) |
-| `--sample-rate` | Resample output to this rate in Hz (0 = native) |
-| `--data-dir` | Directory for piper voice models |
-| `--verbose`, `-v` | Enable DEBUG logging |
+| Argument          | Description                                             |
+|-------------------|---------------------------------------------------------|
+| `text`            | Text to synthesize (positional)                         |
+| `--output`, `-o`  | Output WAV file path (required)                         |
+| `--model`, `-m`   | Piper voice model name (default: `de_DE-thorsten-high`) |
+| `--sample-rate`   | Resample output to this rate in Hz (0 = native)         |
+| `--data-dir`      | Directory for piper voice models                        |
+| `--verbose`, `-v` | Enable DEBUG logging                                    |
 
 ### `stt` subcommand
 
@@ -588,17 +591,17 @@ python -m sipstuff.cli stt recording.wav --no-vad
 python -m sipstuff.cli stt recording.wav --device cuda --compute-type float16
 ```
 
-| Argument | Description |
-|----------|-------------|
-| `wav` | Path to WAV file to transcribe (positional) |
-| `--model`, `-m` | Whisper model size: `tiny` / `base` / `small` / `medium` / `large-v3` |
-| `--language`, `-l` | Language code (default: `de`) |
-| `--device` | Compute device: `cpu` (default) or `cuda` |
-| `--compute-type` | Quantization: `int8` / `float16` / `float32` |
-| `--data-dir` | Directory for Whisper model cache |
-| `--json` | Output result as JSON with `audio_duration`, `language`, `language_probability`, `segments` |
-| `--no-vad` | Disable Silero VAD pre-filtering |
-| `--verbose`, `-v` | Enable DEBUG logging |
+| Argument           | Description                                                                                 |
+|--------------------|---------------------------------------------------------------------------------------------|
+| `wav`              | Path to WAV file to transcribe (positional)                                                 |
+| `--model`, `-m`    | Whisper model size: `tiny` / `base` / `small` / `medium` / `large-v3`                       |
+| `--language`, `-l` | Language code (default: `de`)                                                               |
+| `--device`         | Compute device: `cpu` (default) or `cuda`                                                   |
+| `--compute-type`   | Quantization: `int8` / `float16` / `float32`                                                |
+| `--data-dir`       | Directory for Whisper model cache                                                           |
+| `--json`           | Output result as JSON with `audio_duration`, `language`, `language_probability`, `segments` |
+| `--no-vad`         | Disable Silero VAD pre-filtering                                                            |
+| `--verbose`, `-v`  | Enable DEBUG logging                                                                        |
 
 ### `call` subcommand
 
@@ -650,70 +653,73 @@ python -m sipstuff.cli call --config sip.yaml --dest +491234567890 --wav alert.w
 
 **SIP / auth arguments:**
 
-| Argument | Description |
-|----------|-------------|
-| `--config`, `-c` | Path to YAML config file |
-| `--server`, `-s` | PBX hostname or IP |
-| `--port`, `-p` | SIP port (default: 5060) |
-| `--user`, `-u` | SIP extension / username |
-| `--password` | SIP password |
-| `--transport` | `udp` / `tcp` / `tls` |
-| `--srtp` | `disabled` / `optional` / `mandatory` |
-| `--tls-verify` | Verify TLS server certificate |
+| Argument             | Description                                             |
+|----------------------|---------------------------------------------------------|
+| `--config`, `-c`     | Path to YAML config file                                |
+| `--server`, `-s`     | PBX hostname or IP                                      |
+| `--port`, `-p`       | SIP port (default: 5060)                                |
+| `--user`, `-u`       | SIP extension / username                                |
+| `--password`         | SIP password                                            |
+| `--transport`        | `udp` / `tcp` / `tls`                                   |
+| `--srtp`             | `disabled` / `optional` / `mandatory`                   |
+| `--tls-verify`       | Verify TLS server certificate                           |
+| `--rtp-port`         | RTP start port, 0 = OS-assigned (default: 4000)         |
+| `--rtp-port-range`   | RTP port window width (default: 200)                    |
+| `--no-rtp-randomize` | Always start at `--rtp-port` instead of a random offset |
 
 **Audio source (`--wav` and `--interactive` are mutually exclusive):**
 
-| Argument | Description |
-|----------|-------------|
-| `--wav`, `-w` | Path to WAV file to play |
+| Argument        | Description                                                                                         |
+|-----------------|-----------------------------------------------------------------------------------------------------|
+| `--wav`, `-w`   | Path to WAV file to play                                                                            |
 | `--interactive` | Interactive live TTS mode: type text in the console during the call (requires `--piper-live-model`) |
-| `--text` | Text to synthesize via piper TTS, or initial greeting in interactive mode |
+| `--text`        | Text to synthesize via piper TTS, or initial greeting in interactive mode                           |
 
 **Call timing:**
 
-| Argument | Description |
-|----------|-------------|
-| `--dest`, `-d` | Destination phone number or SIP URI (required) |
-| `--timeout`, `-t` | Call timeout in seconds |
-| `--pre-delay` | Seconds to wait after answer before playback |
-| `--post-delay` | Seconds to wait after playback before hangup |
-| `--inter-delay` | Seconds of silence between WAV repeats |
-| `--repeat` | Number of times to play the WAV |
+| Argument             | Description                                          |
+|----------------------|------------------------------------------------------|
+| `--dest`, `-d`       | Destination phone number or SIP URI (required)       |
+| `--timeout`, `-t`    | Call timeout in seconds                              |
+| `--pre-delay`        | Seconds to wait after answer before playback         |
+| `--post-delay`       | Seconds to wait after playback before hangup         |
+| `--inter-delay`      | Seconds of silence between WAV repeats               |
+| `--repeat`           | Number of times to play the WAV                      |
 | `--wait-for-silence` | Wait for N seconds of remote silence before playback |
 
 **Recording / streaming / TTS:**
 
-| Argument | Description |
-|----------|-------------|
-| `--record` | Record remote-party audio to this WAV path |
-| `--audio-socket` | Unix domain socket path for live PCM streaming |
-| `--piper-model` | Piper voice model name (for pre-generated TTS) |
-| `--piper-live-model` | Piper voice model for live TTS in interactive mode |
-| `--tts-sample-rate` | Resample TTS output to this rate |
-| `--tts-data-dir` | Directory for piper voice models |
-| `--transcribe` | Transcribe recorded audio and write a JSON call report (requires `--record`) |
-| `--stt-model` | Whisper model size for transcription |
-| `--stt-language` | Language code for STT (default: from config/env, then `de`) |
-| `--stt-data-dir` | Directory for Whisper model cache |
+| Argument             | Description                                                                  |
+|----------------------|------------------------------------------------------------------------------|
+| `--record`           | Record remote-party audio to this WAV path                                   |
+| `--audio-socket`     | Unix domain socket path for live PCM streaming                               |
+| `--piper-model`      | Piper voice model name (for pre-generated TTS)                               |
+| `--piper-live-model` | Piper voice model for live TTS in interactive mode                           |
+| `--tts-sample-rate`  | Resample TTS output to this rate                                             |
+| `--tts-data-dir`     | Directory for piper voice models                                             |
+| `--transcribe`       | Transcribe recorded audio and write a JSON call report (requires `--record`) |
+| `--stt-model`        | Whisper model size for transcription                                         |
+| `--stt-language`     | Language code for STT (default: from config/env, then `de`)                  |
+| `--stt-data-dir`     | Directory for Whisper model cache                                            |
 
 **NAT traversal:**
 
-| Argument | Description |
-|----------|-------------|
-| `--stun-servers` | Comma-separated STUN servers (`stun.l.google.com:19302`) |
-| `--ice` | Enable ICE for media |
-| `--turn-server` | TURN relay server (`host:port`); implies `--turn-enabled` |
-| `--turn-username` | TURN username |
-| `--turn-password` | TURN password |
-| `--turn-transport` | TURN transport: `udp` / `tcp` / `tls` |
-| `--keepalive` | UDP keepalive interval in seconds |
-| `--public-address` | Public IP to advertise in SDP/Contact |
+| Argument           | Description                                               |
+|--------------------|-----------------------------------------------------------|
+| `--stun-servers`   | Comma-separated STUN servers (`stun.l.google.com:19302`)  |
+| `--ice`            | Enable ICE for media                                      |
+| `--turn-server`    | TURN relay server (`host:port`); implies `--turn-enabled` |
+| `--turn-username`  | TURN username                                             |
+| `--turn-password`  | TURN password                                             |
+| `--turn-transport` | TURN transport: `udp` / `tcp` / `tls`                     |
+| `--keepalive`      | UDP keepalive interval in seconds                         |
+| `--public-address` | Public IP to advertise in SDP/Contact                     |
 
 **Logging:**
 
-| Argument | Description |
-|----------|-------------|
-| `--verbose`, `-v` | Enable DEBUG logging |
+| Argument                  | Description                                                       |
+|---------------------------|-------------------------------------------------------------------|
+| `--verbose`, `-v`         | Enable DEBUG logging                                              |
 | `--pjsip-log-level` `0-6` | PJSIP log verbosity (0=none, 5=trace, 6=very verbose; default: 3) |
 
 ### JSON Call Report
@@ -848,15 +854,15 @@ producer.speak("Hallo Welt!")      # non-blocking
 producer.stop()
 ```
 
-| Name | Type | Purpose |
-|------|------|---------|
-| `PiperTTSProducer` | class | Producer thread: synthesises text via Piper Python API, resamples, and enqueues 20 ms PCM chunks |
-| `TTSMediaPort` | class (`pj.AudioMediaPort` subclass) | Consumer: dequeues PCM chunks every 20 ms in `onFrameRequested()` and feeds them to PJSIP |
-| `CLOCK_RATE` | int | `16000` — audio sample rate |
-| `SAMPLES_PER_FRAME` | int | `320` — samples per 20 ms frame |
-| `BITS_PER_SAMPLE` | int | `16` — S16_LE |
-| `CHANNEL_COUNT` | int | `1` — mono |
-| `interactive_console()` | function | Reads text from stdin in a loop and calls `tts_producer.speak()` — generic console TTS loop for both callee and caller interactive modes |
+| Name                    | Type                                 | Purpose                                                                                                                                  |
+|-------------------------|--------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| `PiperTTSProducer`      | class                                | Producer thread: synthesises text via Piper Python API, resamples, and enqueues 20 ms PCM chunks                                         |
+| `TTSMediaPort`          | class (`pj.AudioMediaPort` subclass) | Consumer: dequeues PCM chunks every 20 ms in `onFrameRequested()` and feeds them to PJSIP                                                |
+| `CLOCK_RATE`            | int                                  | `16000` — audio sample rate                                                                                                              |
+| `SAMPLES_PER_FRAME`     | int                                  | `320` — samples per 20 ms frame                                                                                                          |
+| `BITS_PER_SAMPLE`       | int                                  | `16` — S16_LE                                                                                                                            |
+| `CHANNEL_COUNT`         | int                                  | `1` — mono                                                                                                                               |
+| `interactive_console()` | function                             | Reads text from stdin in a loop and calls `tts_producer.speak()` — generic console TTS loop for both callee and caller interactive modes |
 
 Used by `sipstuff.realtime.pjsip_realtime_tts` (callee realtime-tts),
 `sipstuff.sip_caller` (outgoing call live TTS), and `sipstuff.cli`
@@ -892,8 +898,8 @@ path = generate_wav(text="Hello World", model="en_US-lessac-high")
 
 **Environment variables for TTS:**
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable         | Default                       | Description                           |
+|------------------|-------------------------------|---------------------------------------|
 | `PIPER_DATA_DIR` | `~/.local/share/piper-voices` | Directory for downloaded voice models |
 
 ---
@@ -937,12 +943,12 @@ pre-trimmed audio is provided.
 
 **Environment variables for STT:**
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `WHISPER_DATA_DIR` | `~/.local/share/faster-whisper-models` | Directory for downloaded Whisper models |
-| `WHISPER_MODEL` | `medium` | Default model size |
-| `WHISPER_DEVICE` | `cpu` | Compute device (`cpu` or `cuda`) |
-| `WHISPER_COMPUTE_TYPE` | `int8` (cpu) / `float16` (cuda) | Quantization type |
+| Variable               | Default                                | Description                             |
+|------------------------|----------------------------------------|-----------------------------------------|
+| `WHISPER_DATA_DIR`     | `~/.local/share/faster-whisper-models` | Directory for downloaded Whisper models |
+| `WHISPER_MODEL`        | `medium`                               | Default model size                      |
+| `WHISPER_DEVICE`       | `cpu`                                  | Compute device (`cpu` or `cuda`)        |
+| `WHISPER_COMPUTE_TYPE` | `int8` (cpu) / `float16` (cuda)        | Quantization type                       |
 
 ---
 
@@ -953,61 +959,64 @@ corresponding sub-model field.
 
 ### SIP Connection (`SipConfig`)
 
-| Variable | Field | Default | Description |
-|----------|-------|---------|-------------|
-| `SIP_SERVER` | `sip.server` | — | PBX hostname or IP (required) |
-| `SIP_PORT` | `sip.port` | `5060` | SIP port |
-| `SIP_USER` | `sip.user` | — | SIP username / extension (required) |
-| `SIP_PASSWORD` | `sip.password` | — | SIP password (required) |
-| `SIP_TRANSPORT` | `sip.transport` | `udp` | `udp` / `tcp` / `tls` |
-| `SIP_SRTP` | `sip.srtp` | `disabled` | `disabled` / `optional` / `mandatory` |
-| `SIP_TLS_VERIFY_SERVER` | `sip.tls_verify_server` | `false` | Verify TLS certificate |
-| `SIP_LOCAL_PORT` | `sip.local_port` | `0` | Local bind port (0 = auto) |
+| Variable                 | Field                    | Default    | Description                               |
+|--------------------------|--------------------------|------------|-------------------------------------------|
+| `SIP_SERVER`             | `sip.server`             | —          | PBX hostname or IP (required)             |
+| `SIP_PORT`               | `sip.port`               | `5060`     | SIP port                                  |
+| `SIP_USER`               | `sip.user`               | —          | SIP username / extension (required)       |
+| `SIP_PASSWORD`           | `sip.password`           | —          | SIP password (required)                   |
+| `SIP_TRANSPORT`          | `sip.transport`          | `udp`      | `udp` / `tcp` / `tls`                     |
+| `SIP_SRTP`               | `sip.srtp`               | `disabled` | `disabled` / `optional` / `mandatory`     |
+| `SIP_TLS_VERIFY_SERVER`  | `sip.tls_verify_server`  | `false`    | Verify TLS certificate                    |
+| `SIP_LOCAL_PORT`         | `sip.local_port`         | `0`        | Local bind port (0 = auto)                |
+| `SIP_RTP_PORT`           | `sip.rtp_port`           | `4000`     | RTP start port (0 = OS-assigned)          |
+| `SIP_RTP_PORT_RANGE`     | `sip.rtp_port_range`     | `200`      | RTP port window width                     |
+| `SIP_RTP_RANDOMIZE_PORT` | `sip.rtp_randomize_port` | `true`     | Random start offset inside the RTP window |
 
 ### Call Timing (`CallConfig`)
 
-| Variable | Field | Default | Description |
-|----------|-------|---------|-------------|
-| `SIP_TIMEOUT` | `call.timeout` | `60` | Call timeout in seconds |
-| `SIP_PRE_DELAY` | `call.pre_delay` | `0.0` | Seconds to wait after answer before playback |
-| `SIP_POST_DELAY` | `call.post_delay` | `0.0` | Seconds to wait after playback before hangup |
-| `SIP_INTER_DELAY` | `call.inter_delay` | `0.0` | Seconds of silence between WAV repeats |
-| `SIP_REPEAT` | `call.repeat` | `1` | Number of times to play the WAV |
-| `SIP_WAIT_FOR_SILENCE` | `call.wait_for_silence` | `0.0` | Seconds of remote silence before playback |
+| Variable               | Field                   | Default | Description                                  |
+|------------------------|-------------------------|---------|----------------------------------------------|
+| `SIP_TIMEOUT`          | `call.timeout`          | `60`    | Call timeout in seconds                      |
+| `SIP_PRE_DELAY`        | `call.pre_delay`        | `0.0`   | Seconds to wait after answer before playback |
+| `SIP_POST_DELAY`       | `call.post_delay`       | `0.0`   | Seconds to wait after playback before hangup |
+| `SIP_INTER_DELAY`      | `call.inter_delay`      | `0.0`   | Seconds of silence between WAV repeats       |
+| `SIP_REPEAT`           | `call.repeat`           | `1`     | Number of times to play the WAV              |
+| `SIP_WAIT_FOR_SILENCE` | `call.wait_for_silence` | `0.0`   | Seconds of remote silence before playback    |
 
 ### TTS (`TtsConfig`)
 
-| Variable | Field | Default | Description |
-|----------|-------|---------|-------------|
-| `SIP_TTS_MODEL` | `tts.model` | `de_DE-thorsten-high` | Piper voice model name |
-| `SIP_TTS_SAMPLE_RATE` | `tts.sample_rate` | `0` | Resample TTS output (0 = native) |
+| Variable              | Field             | Default               | Description                      |
+|-----------------------|-------------------|-----------------------|----------------------------------|
+| `SIP_TTS_MODEL`       | `tts.model`       | `de_DE-thorsten-high` | Piper voice model name           |
+| `SIP_TTS_SAMPLE_RATE` | `tts.sample_rate` | `0`                   | Resample TTS output (0 = native) |
 
 ### NAT Traversal (`NatConfig`)
 
-| Variable | Field | Default | Description |
-|----------|-------|---------|-------------|
-| `SIP_STUN_SERVERS` | `nat.stun_servers` | `[]` | Comma-separated list of STUN servers |
-| `SIP_STUN_IGNORE_FAILURE` | `nat.stun_ignore_failure` | `true` | Continue if STUN unreachable |
-| `SIP_ICE_ENABLED` | `nat.ice_enabled` | `false` | Enable ICE |
-| `SIP_TURN_ENABLED` | `nat.turn_enabled` | `false` | Enable TURN relay |
-| `SIP_TURN_SERVER` | `nat.turn_server` | `""` | TURN server address |
-| `SIP_TURN_USERNAME` | `nat.turn_username` | `""` | TURN username |
-| `SIP_TURN_PASSWORD` | `nat.turn_password` | `""` | TURN password |
-| `SIP_TURN_TRANSPORT` | `nat.turn_transport` | `udp` | TURN transport |
-| `SIP_KEEPALIVE_SEC` | `nat.keepalive_sec` | `0` | UDP keepalive interval |
-| `SIP_PUBLIC_ADDRESS` | `nat.public_address` | `""` | Public IP for SDP/Contact |
+| Variable                  | Field                     | Default | Description                          |
+|---------------------------|---------------------------|---------|--------------------------------------|
+| `SIP_STUN_SERVERS`        | `nat.stun_servers`        | `[]`    | Comma-separated list of STUN servers |
+| `SIP_STUN_IGNORE_FAILURE` | `nat.stun_ignore_failure` | `true`  | Continue if STUN unreachable         |
+| `SIP_ICE_ENABLED`         | `nat.ice_enabled`         | `false` | Enable ICE                           |
+| `SIP_TURN_ENABLED`        | `nat.turn_enabled`        | `false` | Enable TURN relay                    |
+| `SIP_TURN_SERVER`         | `nat.turn_server`         | `""`    | TURN server address                  |
+| `SIP_TURN_USERNAME`       | `nat.turn_username`       | `""`    | TURN username                        |
+| `SIP_TURN_PASSWORD`       | `nat.turn_password`       | `""`    | TURN password                        |
+| `SIP_TURN_TRANSPORT`      | `nat.turn_transport`      | `udp`   | TURN transport                       |
+| `SIP_KEEPALIVE_SEC`       | `nat.keepalive_sec`       | `0`     | UDP keepalive interval               |
+| `SIP_PUBLIC_ADDRESS`      | `nat.public_address`      | `""`    | Public IP for SDP/Contact            |
 
 ### PJSIP Logging
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PJSIP_LOG_LEVEL` | `3` | PJSIP verbosity routed to loguru (0=none … 6=trace) |
-| `PJSIP_CONSOLE_LEVEL` | `4` | Native PJSIP console output level; set 0 to suppress |
+| Variable              | Default | Description                                          |
+|-----------------------|---------|------------------------------------------------------|
+| `PJSIP_LOG_LEVEL`     | `3`     | PJSIP verbosity routed to loguru (0=none … 6=trace)  |
+| `PJSIP_CONSOLE_LEVEL` | `4`     | Native PJSIP console output level; set 0 to suppress |
 
 ### General Logging
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable       | Default | Description                            |
+|----------------|---------|----------------------------------------|
 | `LOGURU_LEVEL` | `DEBUG` | loguru log level for the `stderr` sink |
 
 ---
@@ -1024,6 +1033,9 @@ sip:
   srtp: disabled          # disabled | optional | mandatory
   tls_verify_server: false
   local_port: 0           # 0 = auto
+  rtp_port: 4000          # 0 = OS-assigned
+  rtp_port_range: 200
+  rtp_randomize_port: true
 
 call:
   timeout: 60

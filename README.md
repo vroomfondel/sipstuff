@@ -141,18 +141,18 @@ The `--json` flag outputs structured JSON including segment timestamps, audio du
 }
 ```
 
-| Flag | Description |
-|------|-------------|
-| `wav` (positional) | Path to WAV file to transcribe |
-| `--backend` | STT backend: `faster-whisper` (default) or `openvino` |
-| `--model`, `-m` | Whisper model size or HuggingFace model ID (default: `medium`) |
-| `--language`, `-l` | Language code (default: `de`) |
-| `--device` | Compute device: `cpu` or `cuda` (default: `cpu`) |
-| `--compute-type` | Quantization: `int8`, `float16`, `float32` (auto-selected by default) |
-| `--data-dir` | Directory for Whisper models (default: `~/.local/share/faster-whisper-models`) |
-| `--json` | Output result as JSON with metadata and segment timestamps |
-| `--no-vad` | Disable Silero VAD pre-filtering (VAD is on by default, recommended for phone recordings) |
-| `--verbose`, `-v` | Debug logging |
+| Flag               | Description                                                                               |
+|--------------------|-------------------------------------------------------------------------------------------|
+| `wav` (positional) | Path to WAV file to transcribe                                                            |
+| `--backend`        | STT backend: `faster-whisper` (default) or `openvino`                                     |
+| `--model`, `-m`    | Whisper model size or HuggingFace model ID (default: `medium`)                            |
+| `--language`, `-l` | Language code (default: `de`)                                                             |
+| `--device`         | Compute device: `cpu` or `cuda` (default: `cpu`)                                          |
+| `--compute-type`   | Quantization: `int8`, `float16`, `float32` (auto-selected by default)                     |
+| `--data-dir`       | Directory for Whisper models (default: `~/.local/share/faster-whisper-models`)            |
+| `--json`           | Output result as JSON with metadata and segment timestamps                                |
+| `--no-vad`         | Disable Silero VAD pre-filtering (VAD is on by default, recommended for phone recordings) |
+| `--verbose`, `-v`  | Debug logging                                                                             |
 
 ### `call` — Place a SIP Call
 
@@ -257,102 +257,105 @@ When `--transcribe` is used with `--record`, a JSON call report is written next 
 
 **SIP connection:**
 
-| Flag | Description |
-|------|-------------|
-| `--config`, `-c` | Path to YAML config file |
-| `--server`, `-s` | PBX hostname or IP |
-| `--port`, `-p` | SIP port (default: 5060) |
-| `--user`, `-u` | SIP extension / username |
-| `--password` | SIP password |
-| `--transport` | `udp`, `tcp`, or `tls` (default: udp) |
-| `--srtp` | `disabled`, `optional`, or `mandatory` (default: disabled) |
-| `--tls-verify` | Verify TLS server certificate |
-| `--dest`, `-d` | Destination phone number or SIP URI (required) |
-| `--timeout`, `-t` | Call timeout in seconds (default: 60) |
+| Flag                 | Description                                                |
+|----------------------|------------------------------------------------------------|
+| `--config`, `-c`     | Path to YAML config file                                   |
+| `--server`, `-s`     | PBX hostname or IP                                         |
+| `--port`, `-p`       | SIP port (default: 5060)                                   |
+| `--user`, `-u`       | SIP extension / username                                   |
+| `--password`         | SIP password                                               |
+| `--transport`        | `udp`, `tcp`, or `tls` (default: udp)                      |
+| `--srtp`             | `disabled`, `optional`, or `mandatory` (default: disabled) |
+| `--tls-verify`       | Verify TLS server certificate                              |
+| `--rtp-port`         | RTP start port, 0 = OS-assigned (default: 4000)            |
+| `--rtp-port-range`   | RTP port window width (default: 200)                       |
+| `--no-rtp-randomize` | Always start at `--rtp-port` instead of a random offset    |
+| `--dest`, `-d`       | Destination phone number or SIP URI (required)             |
+| `--timeout`, `-t`    | Call timeout in seconds (default: 60)                      |
 
 **Audio source (mutually exclusive):**
 
-| Flag | Description |
-|------|-------------|
-| `--wav`, `-w` | Path to WAV file to play (mutually exclusive with `--interactive`) |
+| Flag            | Description                                                                                                                                                         |
+|-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--wav`, `-w`   | Path to WAV file to play (mutually exclusive with `--interactive`)                                                                                                  |
 | `--interactive` | Interactive live TTS mode: type text in the console that gets spoken via Piper TTS during the call (mutually exclusive with `--wav`, requires `--piper-live-model`) |
 
 **TTS:**
 
-| Flag | Description |
-|------|-------------|
-| `--text` | Text to synthesize via piper TTS, or initial greeting in interactive mode |
-| `--piper-model` | Piper voice model for pre-generated TTS (default: `de_DE-thorsten-high`) |
-| `--piper-live-model` | Piper voice model for live TTS in interactive mode |
-| `--tts-sample-rate` | Resample TTS output to this rate in Hz (default: native/22050) |
-| `--tts-data-dir` | Directory for piper voice models (default: `~/.local/share/piper-voices`) |
-| `--tts-cuda` | Use CUDA GPU acceleration for Piper TTS |
+| Flag                 | Description                                                               |
+|----------------------|---------------------------------------------------------------------------|
+| `--text`             | Text to synthesize via piper TTS, or initial greeting in interactive mode |
+| `--piper-model`      | Piper voice model for pre-generated TTS (default: `de_DE-thorsten-high`)  |
+| `--piper-live-model` | Piper voice model for live TTS in interactive mode                        |
+| `--tts-sample-rate`  | Resample TTS output to this rate in Hz (default: native/22050)            |
+| `--tts-data-dir`     | Directory for piper voice models (default: `~/.local/share/piper-voices`) |
+| `--tts-cuda`         | Use CUDA GPU acceleration for Piper TTS                                   |
 
 **Playback timing:**
 
-| Flag | Description |
-|------|-------------|
-| `--pre-delay` | Seconds to wait after answer before playback (default: 0) |
-| `--post-delay` | Seconds to wait after playback before hangup (default: 0) |
-| `--inter-delay` | Seconds to wait between WAV repeats (default: 0) |
-| `--repeat` | Number of times to play the WAV (default: 1) |
+| Flag                 | Description                                                                                                                                                                     |
+|----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--pre-delay`        | Seconds to wait after answer before playback (default: 0)                                                                                                                       |
+| `--post-delay`       | Seconds to wait after playback before hangup (default: 0)                                                                                                                       |
+| `--inter-delay`      | Seconds to wait between WAV repeats (default: 0)                                                                                                                                |
+| `--repeat`           | Number of times to play the WAV (default: 1)                                                                                                                                    |
 | `--wait-for-silence` | Wait for N seconds of remote silence before playback (e.g. `1.0` to let callee finish "Hello?"). Uses `SilenceDetector` on the incoming audio RMS. Applied after `--pre-delay`. |
 
 **Recording & transcription:**
 
-| Flag | Description |
-|------|-------------|
-| `--record` | Record remote-party (RX) audio to this WAV file path (parent dirs created automatically) |
-| `--record-tx` | Record local (TX) audio to this WAV file path |
-| `--mix-mode` | Post-call mix mode: `none`, `mono`, or `stereo` (requires `--record` + `--record-tx`) |
-| `--mix-output` | Output path for the RX+TX mix file |
-| `--transcribe` | Transcribe recorded audio via STT and write a JSON call report (requires `--record`) |
-| `--live-transcribe` | Live STT of remote audio during the call (real-time output to console) |
-| `--stt-backend` | STT backend: `faster-whisper` (default) or `openvino` |
-| `--stt-model` | Whisper model size for transcription (default: `medium`) |
-| `--stt-language` | Language code for STT transcription (default: from config, then `de`) |
-| `--stt-data-dir` | Directory for Whisper STT models (default: `~/.local/share/faster-whisper-models`) |
+| Flag                | Description                                                                              |
+|---------------------|------------------------------------------------------------------------------------------|
+| `--record`          | Record remote-party (RX) audio to this WAV file path (parent dirs created automatically) |
+| `--record-tx`       | Record local (TX) audio to this WAV file path                                            |
+| `--mix-mode`        | Post-call mix mode: `none`, `mono`, or `stereo` (requires `--record` + `--record-tx`)    |
+| `--mix-output`      | Output path for the RX+TX mix file                                                       |
+| `--transcribe`      | Transcribe recorded audio via STT and write a JSON call report (requires `--record`)     |
+| `--live-transcribe` | Live STT of remote audio during the call (real-time output to console)                   |
+| `--stt-backend`     | STT backend: `faster-whisper` (default) or `openvino`                                    |
+| `--stt-model`       | Whisper model size for transcription (default: `medium`)                                 |
+| `--stt-language`    | Language code for STT transcription (default: from config, then `de`)                    |
+| `--stt-data-dir`    | Directory for Whisper STT models (default: `~/.local/share/faster-whisper-models`)       |
 
 **Live VAD (for `--live-transcribe`):**
 
-| Flag | Description |
-|------|-------------|
-| `--vad-silence-threshold` | RMS silence threshold (default: 0.01) |
-| `--vad-silence-trigger` | Seconds of silence to trigger chunk boundary (default: 0.3) |
-| `--vad-max-chunk` | Max seconds per audio chunk (default: 5.0) |
-| `--vad-min-chunk` | Min seconds per audio chunk (default: 0.5) |
+| Flag                      | Description                                                 |
+|---------------------------|-------------------------------------------------------------|
+| `--vad-silence-threshold` | RMS silence threshold (default: 0.01)                       |
+| `--vad-silence-trigger`   | Seconds of silence to trigger chunk boundary (default: 0.3) |
+| `--vad-max-chunk`         | Max seconds per audio chunk (default: 5.0)                  |
+| `--vad-min-chunk`         | Min seconds per audio chunk (default: 0.5)                  |
 
 **Audio device:**
 
-| Flag | Description |
-|------|-------------|
-| `--no-null-audio` | Use real audio devices instead of null device for both directions |
-| `--real-capture` | Use real microphone even when playback stays null |
-| `--real-playback` | Use real speaker even when capture stays null |
-| `--play-audio` | Play remote-party (RX) audio on local speakers via sounddevice |
-| `--play-tx` | Route local (TX) audio to output sinks; stereo with RX when combined with `--play-audio` |
-| `--no-play-rx` | Disable routing of RX audio to output sinks |
-| `--audio-device` | Sounddevice output device (index or name substring) |
-| `--audio-socket` | Unix socket path for live PCM streaming (16 kHz, S16_LE, mono) |
+| Flag              | Description                                                                              |
+|-------------------|------------------------------------------------------------------------------------------|
+| `--no-null-audio` | Use real audio devices instead of null device for both directions                        |
+| `--real-capture`  | Use real microphone even when playback stays null                                        |
+| `--real-playback` | Use real speaker even when capture stays null                                            |
+| `--play-audio`    | Play remote-party (RX) audio on local speakers via sounddevice                           |
+| `--play-tx`       | Route local (TX) audio to output sinks; stereo with RX when combined with `--play-audio` |
+| `--no-play-rx`    | Disable routing of RX audio to output sinks                                              |
+| `--audio-device`  | Sounddevice output device (index or name substring)                                      |
+| `--audio-socket`  | Unix socket path for live PCM streaming (16 kHz, S16_LE, mono)                           |
 
 **NAT traversal:**
 
-| Flag | Description |
-|------|-------------|
-| `--stun-servers` | Comma-separated STUN servers (e.g. `stun.l.google.com:19302`) |
-| `--ice` | Enable ICE for media NAT traversal |
-| `--turn-server` | TURN relay server (`host:port`) |
-| `--turn-username` | TURN username |
-| `--turn-password` | TURN password |
-| `--turn-transport` | TURN transport: `udp`, `tcp`, or `tls` (default: udp) |
-| `--keepalive` | UDP keepalive interval in seconds (0 = disabled) |
-| `--public-address` | Public IP to advertise in SDP/Contact (e.g. K3s node IP) |
+| Flag               | Description                                                   |
+|--------------------|---------------------------------------------------------------|
+| `--stun-servers`   | Comma-separated STUN servers (e.g. `stun.l.google.com:19302`) |
+| `--ice`            | Enable ICE for media NAT traversal                            |
+| `--turn-server`    | TURN relay server (`host:port`)                               |
+| `--turn-username`  | TURN username                                                 |
+| `--turn-password`  | TURN password                                                 |
+| `--turn-transport` | TURN transport: `udp`, `tcp`, or `tls` (default: udp)         |
+| `--keepalive`      | UDP keepalive interval in seconds (0 = disabled)              |
+| `--public-address` | Public IP to advertise in SDP/Contact (e.g. K3s node IP)      |
 
 **Logging:**
 
-| Flag | Description |
-|------|-------------|
-| `--verbose`, `-v` | Debug logging |
+| Flag                | Description                           |
+|---------------------|---------------------------------------|
+| `--verbose`, `-v`   | Debug logging                         |
 | `--pjsip-log-level` | PJSIP log verbosity (0–6, default: 3) |
 
 ### `callee_autoanswer` — Auto-Answer Incoming Calls
@@ -383,23 +386,23 @@ python -m sipstuff.cli callee_autoanswer \
     --answer-delay 2.0
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--mode` | Playback mode: `none`, `wav`, or `tts` (default: `none`) |
-| `--wav-file` | WAV file to play (requires `--mode wav`) |
-| `--tts-text` | Text for TTS (requires `--mode tts`) |
-| `--piper-model` | Piper voice model (default: `de_DE-thorsten-high`) |
-| `--tts-data-dir` | Piper data directory |
-| `--start-wav` | WAV file to play at call start |
-| `--end-wav` | WAV file to play before hangup |
-| `--pause-before-start` | Pause before start WAV (default: 0.0 s) |
-| `--pause-before-content` | Pause before content WAV/TTS (default: 0.0 s) |
-| `--pause-before-end` | Pause before end WAV (default: 0.0 s) |
-| `--answer-delay` | Seconds before answering (default: 1.0) |
-| `--tts-cuda` | Use CUDA GPU acceleration for Piper TTS |
-| `--no-auto-answer` | Do not auto-answer calls |
+| Flag                     | Description                                              |
+|--------------------------|----------------------------------------------------------|
+| `--mode`                 | Playback mode: `none`, `wav`, or `tts` (default: `none`) |
+| `--wav-file`             | WAV file to play (requires `--mode wav`)                 |
+| `--tts-text`             | Text for TTS (requires `--mode tts`)                     |
+| `--piper-model`          | Piper voice model (default: `de_DE-thorsten-high`)       |
+| `--tts-data-dir`         | Piper data directory                                     |
+| `--start-wav`            | WAV file to play at call start                           |
+| `--end-wav`              | WAV file to play before hangup                           |
+| `--pause-before-start`   | Pause before start WAV (default: 0.0 s)                  |
+| `--pause-before-content` | Pause before content WAV/TTS (default: 0.0 s)            |
+| `--pause-before-end`     | Pause before end WAV (default: 0.0 s)                    |
+| `--answer-delay`         | Seconds before answering (default: 1.0)                  |
+| `--tts-cuda`             | Use CUDA GPU acceleration for Piper TTS                  |
+| `--no-auto-answer`       | Do not auto-answer calls                                 |
 
-Shared flags: `--config`, `--server`, `--port`, `--user`, `--password`, `--transport`, `--srtp`, `--tls-verify`, `--local-port`, NAT traversal group, `--verbose`, `--pjsip-log-level`
+Shared flags: `--config`, `--server`, `--port`, `--user`, `--password`, `--transport`, `--srtp`, `--tls-verify`, `--rtp-port`, `--rtp-port-range`, `--no-rtp-randomize`, `--local-port`, NAT traversal group, `--verbose`, `--pjsip-log-level`
 
 ### `callee_realtime-tts` — Incoming Call with Live TTS
 
@@ -421,56 +424,56 @@ python -m sipstuff.cli callee_realtime-tts \
 
 **TTS & playback:**
 
-| Flag | Description |
-|------|-------------|
-| `--tts-text` | Initial TTS text spoken on answer |
-| `--interactive` | Interactive mode: type text in the console that gets spoken live |
-| `--piper-live-model` | Piper voice model (default: `de_DE-thorsten-high`) |
-| `--tts-cuda` | Use CUDA GPU acceleration for Piper TTS |
-| `--wav-file` | WAV file to play at call start |
-| `--play-delay` | Seconds to wait before playback (default: 0.0) |
-| `--answer-delay` | Seconds before answering (default: 1.0) |
-| `--no-auto-answer` | Do not auto-answer calls |
+| Flag                 | Description                                                      |
+|----------------------|------------------------------------------------------------------|
+| `--tts-text`         | Initial TTS text spoken on answer                                |
+| `--interactive`      | Interactive mode: type text in the console that gets spoken live |
+| `--piper-live-model` | Piper voice model (default: `de_DE-thorsten-high`)               |
+| `--tts-cuda`         | Use CUDA GPU acceleration for Piper TTS                          |
+| `--wav-file`         | WAV file to play at call start                                   |
+| `--play-delay`       | Seconds to wait before playback (default: 0.0)                   |
+| `--answer-delay`     | Seconds before answering (default: 1.0)                          |
+| `--no-auto-answer`   | Do not auto-answer calls                                         |
 
 **STT (speech-to-text):**
 
-| Flag | Description |
-|------|-------------|
-| `--stt-backend` | STT backend: `faster-whisper` (default) or `openvino` |
-| `--stt-model` | Whisper model size or HuggingFace model ID (default: `base`) |
-| `--stt-live-model` | Separate smaller model for live transcription |
-| `--stt-device` | Compute device: `cpu` or `cuda` |
-| `--stt-language` | Language code for STT |
-| `--stt-data-dir` | Whisper model cache directory |
+| Flag               | Description                                                  |
+|--------------------|--------------------------------------------------------------|
+| `--stt-backend`    | STT backend: `faster-whisper` (default) or `openvino`        |
+| `--stt-model`      | Whisper model size or HuggingFace model ID (default: `base`) |
+| `--stt-live-model` | Separate smaller model for live transcription                |
+| `--stt-device`     | Compute device: `cpu` or `cuda`                              |
+| `--stt-language`   | Language code for STT                                        |
+| `--stt-data-dir`   | Whisper model cache directory                                |
 
 **Live VAD:**
 
-| Flag | Description |
-|------|-------------|
-| `--vad-silence-threshold` | RMS silence threshold (default: 0.01) |
-| `--vad-silence-trigger` | Seconds of silence to trigger chunk boundary (default: 0.3) |
-| `--vad-max-chunk` | Max seconds per audio chunk (default: 5.0) |
-| `--vad-min-chunk` | Min seconds per audio chunk (default: 0.5) |
+| Flag                      | Description                                                 |
+|---------------------------|-------------------------------------------------------------|
+| `--vad-silence-threshold` | RMS silence threshold (default: 0.01)                       |
+| `--vad-silence-trigger`   | Seconds of silence to trigger chunk boundary (default: 0.3) |
+| `--vad-max-chunk`         | Max seconds per audio chunk (default: 5.0)                  |
+| `--vad-min-chunk`         | Min seconds per audio chunk (default: 0.5)                  |
 
 **Recording & transcription:**
 
-| Flag | Description |
-|------|-------------|
-| `--wav-output` | Save RX recording to this path |
-| `--wav-dir` | Directory for WAV files (default: `..`) |
-| `--wav-output-tx` | Save TX recording to this path |
-| `--no-wav` | Do not save WAV recordings |
-| `--transcribe` | Full transcription of RX recording after call ends (writes JSON report) |
+| Flag              | Description                                                             |
+|-------------------|-------------------------------------------------------------------------|
+| `--wav-output`    | Save RX recording to this path                                          |
+| `--wav-dir`       | Directory for WAV files (default: `..`)                                 |
+| `--wav-output-tx` | Save TX recording to this path                                          |
+| `--no-wav`        | Do not save WAV recordings                                              |
+| `--transcribe`    | Full transcription of RX recording after call ends (writes JSON report) |
 
 **Audio output:**
 
-| Flag | Description |
-|------|-------------|
+| Flag             | Description                                                     |
+|------------------|-----------------------------------------------------------------|
 | `--audio-socket` | Unix socket for live audio streaming (PCM 16 kHz, S16_LE, mono) |
-| `--play-audio` | Play remote audio on local speakers via sounddevice |
-| `--audio-device` | Sounddevice output device (index or name substring) |
+| `--play-audio`   | Play remote audio on local speakers via sounddevice             |
+| `--audio-device` | Sounddevice output device (index or name substring)             |
 
-Shared flags: `--config`, `--server`, `--port`, `--user`, `--password`, `--transport`, `--srtp`, `--tls-verify`, `--local-port`, NAT traversal group, `--verbose`, `--pjsip-log-level`
+Shared flags: `--config`, `--server`, `--port`, `--user`, `--password`, `--transport`, `--srtp`, `--tls-verify`, `--rtp-port`, `--rtp-port-range`, `--no-rtp-randomize`, `--local-port`, NAT traversal group, `--verbose`, `--pjsip-log-level`
 
 ### `callee_live-transcribe` — Incoming Call with Live Transcription
 
@@ -495,35 +498,35 @@ python -m sipstuff.cli callee_live-transcribe \
     --audio-socket /tmp/audio.sock --play-audio
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--stt-backend` | STT backend: `faster-whisper` (default) or `openvino` |
-| `--stt-model` | Whisper model (default: `base`) |
-| `--stt-live-model` | Separate smaller model for live transcription |
-| `--stt-device` | Compute device: `cpu` or `cuda` |
-| `--stt-language` | Language code for STT |
-| `--stt-data-dir` | Whisper model cache directory |
-| `--vad-silence-threshold` | RMS silence threshold (default: 0.01) |
-| `--vad-silence-trigger` | Seconds of silence to trigger chunk boundary (default: 0.3) |
-| `--vad-max-chunk` | Max seconds per audio chunk (default: 5.0) |
-| `--vad-min-chunk` | Min seconds per audio chunk (default: 0.5) |
-| `--wav-output` | Save RX recording to this path |
-| `--wav-output-tx` | Save TX recording to this path |
-| `--wav-dir` | Directory for WAV files (default: `..`) |
-| `--no-wav` | Do not save WAV recordings |
-| `--transcribe` | Full transcription of RX recording after call ends (writes JSON report) |
-| `--wav-file` | WAV file to play at call start |
-| `--tts-text` | Text for Piper TTS playback at call start |
-| `--piper-model` | Piper voice model (default: `de_DE-thorsten-high`) |
-| `--tts-data-dir` | Piper data directory |
-| `--play-delay` | Seconds to wait before playback (default: 0.0) |
-| `--audio-socket` | Unix socket for live audio streaming (PCM 16 kHz, S16_LE, mono) |
-| `--play-audio` | Play remote audio on local speakers via sounddevice |
-| `--audio-device` | Sounddevice output device (index or name substring) |
-| `--answer-delay` | Seconds before answering (default: 1.0) |
-| `--no-auto-answer` | Do not auto-answer calls |
+| Flag                      | Description                                                             |
+|---------------------------|-------------------------------------------------------------------------|
+| `--stt-backend`           | STT backend: `faster-whisper` (default) or `openvino`                   |
+| `--stt-model`             | Whisper model (default: `base`)                                         |
+| `--stt-live-model`        | Separate smaller model for live transcription                           |
+| `--stt-device`            | Compute device: `cpu` or `cuda`                                         |
+| `--stt-language`          | Language code for STT                                                   |
+| `--stt-data-dir`          | Whisper model cache directory                                           |
+| `--vad-silence-threshold` | RMS silence threshold (default: 0.01)                                   |
+| `--vad-silence-trigger`   | Seconds of silence to trigger chunk boundary (default: 0.3)             |
+| `--vad-max-chunk`         | Max seconds per audio chunk (default: 5.0)                              |
+| `--vad-min-chunk`         | Min seconds per audio chunk (default: 0.5)                              |
+| `--wav-output`            | Save RX recording to this path                                          |
+| `--wav-output-tx`         | Save TX recording to this path                                          |
+| `--wav-dir`               | Directory for WAV files (default: `..`)                                 |
+| `--no-wav`                | Do not save WAV recordings                                              |
+| `--transcribe`            | Full transcription of RX recording after call ends (writes JSON report) |
+| `--wav-file`              | WAV file to play at call start                                          |
+| `--tts-text`              | Text for Piper TTS playback at call start                               |
+| `--piper-model`           | Piper voice model (default: `de_DE-thorsten-high`)                      |
+| `--tts-data-dir`          | Piper data directory                                                    |
+| `--play-delay`            | Seconds to wait before playback (default: 0.0)                          |
+| `--audio-socket`          | Unix socket for live audio streaming (PCM 16 kHz, S16_LE, mono)         |
+| `--play-audio`            | Play remote audio on local speakers via sounddevice                     |
+| `--audio-device`          | Sounddevice output device (index or name substring)                     |
+| `--answer-delay`          | Seconds before answering (default: 1.0)                                 |
+| `--no-auto-answer`        | Do not auto-answer calls                                                |
 
-Shared flags: `--config`, `--server`, `--port`, `--user`, `--password`, `--transport`, `--srtp`, `--tls-verify`, `--local-port`, NAT traversal group, `--verbose`, `--pjsip-log-level`
+Shared flags: `--config`, `--server`, `--port`, `--user`, `--password`, `--transport`, `--srtp`, `--tls-verify`, `--rtp-port`, `--rtp-port-range`, `--no-rtp-randomize`, `--local-port`, NAT traversal group, `--verbose`, `--pjsip-log-level`
 
 ## Docker / Podman Example
 
@@ -812,6 +815,9 @@ sip:
   srtp: "disabled"        # disabled, optional, or mandatory
   tls_verify_server: false
   local_port: 0           # 0 = auto
+  rtp_port: 4000          # 0 = OS-assigned
+  rtp_port_range: 200
+  rtp_randomize_port: true
 
 call:
   timeout: 60
@@ -877,111 +883,114 @@ All settings can be set via `SIP_` prefixed environment variables:
 
 **SIP connection:**
 
-| Variable | Maps to |
-|----------|---------|
-| `SIP_SERVER` | `sip.server` |
-| `SIP_PORT` | `sip.port` |
-| `SIP_USER` | `sip.user` |
-| `SIP_PASSWORD` | `sip.password` |
-| `SIP_TRANSPORT` | `sip.transport` |
-| `SIP_SRTP` | `sip.srtp` |
-| `SIP_TLS_VERIFY_SERVER` | `sip.tls_verify_server` |
-| `SIP_LOCAL_PORT` | `sip.local_port` |
+| Variable                 | Maps to                  |
+|--------------------------|--------------------------|
+| `SIP_SERVER`             | `sip.server`             |
+| `SIP_PORT`               | `sip.port`               |
+| `SIP_USER`               | `sip.user`               |
+| `SIP_PASSWORD`           | `sip.password`           |
+| `SIP_TRANSPORT`          | `sip.transport`          |
+| `SIP_SRTP`               | `sip.srtp`               |
+| `SIP_TLS_VERIFY_SERVER`  | `sip.tls_verify_server`  |
+| `SIP_LOCAL_PORT`         | `sip.local_port`         |
+| `SIP_RTP_PORT`           | `sip.rtp_port`           |
+| `SIP_RTP_PORT_RANGE`     | `sip.rtp_port_range`     |
+| `SIP_RTP_RANDOMIZE_PORT` | `sip.rtp_randomize_port` |
 
 **Call timing:**
 
-| Variable | Maps to |
-|----------|---------|
-| `SIP_TIMEOUT` | `call.timeout` |
-| `SIP_PRE_DELAY` | `call.pre_delay` |
-| `SIP_POST_DELAY` | `call.post_delay` |
-| `SIP_INTER_DELAY` | `call.inter_delay` |
-| `SIP_REPEAT` | `call.repeat` |
+| Variable               | Maps to                 |
+|------------------------|-------------------------|
+| `SIP_TIMEOUT`          | `call.timeout`          |
+| `SIP_PRE_DELAY`        | `call.pre_delay`        |
+| `SIP_POST_DELAY`       | `call.post_delay`       |
+| `SIP_INTER_DELAY`      | `call.inter_delay`      |
+| `SIP_REPEAT`           | `call.repeat`           |
 | `SIP_WAIT_FOR_SILENCE` | `call.wait_for_silence` |
 
 **TTS:**
 
-| Variable | Maps to |
-|----------|---------|
-| `SIP_TTS_MODEL` | `tts.model` |
+| Variable              | Maps to           |
+|-----------------------|-------------------|
+| `SIP_TTS_MODEL`       | `tts.model`       |
 | `SIP_TTS_SAMPLE_RATE` | `tts.sample_rate` |
-| `SIP_TTS_CUDA` | `tts.use_cuda` |
-| `SIP_TTS_DATA_DIR` | `tts.data_dir` |
+| `SIP_TTS_CUDA`        | `tts.use_cuda`    |
+| `SIP_TTS_DATA_DIR`    | `tts.data_dir`    |
 
 **NAT traversal:**
 
-| Variable | Maps to |
-|----------|---------|
-| `SIP_STUN_SERVERS` | `nat.stun_servers` (comma-separated) |
-| `SIP_STUN_IGNORE_FAILURE` | `nat.stun_ignore_failure` |
-| `SIP_ICE_ENABLED` | `nat.ice_enabled` |
-| `SIP_TURN_ENABLED` | `nat.turn_enabled` |
-| `SIP_TURN_SERVER` | `nat.turn_server` |
-| `SIP_TURN_USERNAME` | `nat.turn_username` |
-| `SIP_TURN_PASSWORD` | `nat.turn_password` |
-| `SIP_TURN_TRANSPORT` | `nat.turn_transport` |
-| `SIP_KEEPALIVE_SEC` | `nat.keepalive_sec` |
-| `SIP_PUBLIC_ADDRESS` | `nat.public_address` |
+| Variable                  | Maps to                              |
+|---------------------------|--------------------------------------|
+| `SIP_STUN_SERVERS`        | `nat.stun_servers` (comma-separated) |
+| `SIP_STUN_IGNORE_FAILURE` | `nat.stun_ignore_failure`            |
+| `SIP_ICE_ENABLED`         | `nat.ice_enabled`                    |
+| `SIP_TURN_ENABLED`        | `nat.turn_enabled`                   |
+| `SIP_TURN_SERVER`         | `nat.turn_server`                    |
+| `SIP_TURN_USERNAME`       | `nat.turn_username`                  |
+| `SIP_TURN_PASSWORD`       | `nat.turn_password`                  |
+| `SIP_TURN_TRANSPORT`      | `nat.turn_transport`                 |
+| `SIP_KEEPALIVE_SEC`       | `nat.keepalive_sec`                  |
+| `SIP_PUBLIC_ADDRESS`      | `nat.public_address`                 |
 
 **Audio device:**
 
-| Variable | Maps to |
-|----------|---------|
-| `SIP_NULL_AUDIO` | `audio.use_null_audio` (default: `true`) |
-| `SIP_NULL_CAPTURE` | `audio.null_capture` (null mic; `None` inherits `SIP_NULL_AUDIO`) |
+| Variable            | Maps to                                                                |
+|---------------------|------------------------------------------------------------------------|
+| `SIP_NULL_AUDIO`    | `audio.use_null_audio` (default: `true`)                               |
+| `SIP_NULL_CAPTURE`  | `audio.null_capture` (null mic; `None` inherits `SIP_NULL_AUDIO`)      |
 | `SIP_NULL_PLAYBACK` | `audio.null_playback` (null speaker; `None` inherits `SIP_NULL_AUDIO`) |
-| `SIP_PLAY_RX` | `audio.play_rx` (route RX to output sinks; default: `true`) |
-| `SIP_PLAY_TX` | `audio.play_tx` (route TX to output sinks; default: `false`) |
-| `SIP_AUDIO_DEVICE` | `audio.audio_device` (sounddevice index or name) |
+| `SIP_PLAY_RX`       | `audio.play_rx` (route RX to output sinks; default: `true`)            |
+| `SIP_PLAY_TX`       | `audio.play_tx` (route TX to output sinks; default: `false`)           |
+| `SIP_AUDIO_DEVICE`  | `audio.audio_device` (sounddevice index or name)                       |
 
 **STT:**
 
-| Variable | Maps to |
-|----------|---------|
-| `SIP_STT_BACKEND` | `stt.backend` |
-| `SIP_STT_MODEL` | `stt.model` |
-| `SIP_STT_LANGUAGE` | `stt.language` |
-| `SIP_STT_DEVICE` | `stt.device` |
-| `SIP_STT_DATA_DIR` | `stt.data_dir` |
+| Variable              | Maps to               |
+|-----------------------|-----------------------|
+| `SIP_STT_BACKEND`     | `stt.backend`         |
+| `SIP_STT_MODEL`       | `stt.model`           |
+| `SIP_STT_LANGUAGE`    | `stt.language`        |
+| `SIP_STT_DEVICE`      | `stt.device`          |
+| `SIP_STT_DATA_DIR`    | `stt.data_dir`        |
 | `SIP_LIVE_TRANSCRIBE` | `stt.live_transcribe` |
 
 **VAD:**
 
-| Variable | Maps to |
-|----------|---------|
+| Variable                    | Maps to                 |
+|-----------------------------|-------------------------|
 | `SIP_VAD_SILENCE_THRESHOLD` | `vad.silence_threshold` |
-| `SIP_VAD_SILENCE_TRIGGER` | `vad.silence_trigger` |
-| `SIP_VAD_MAX_CHUNK` | `vad.max_chunk` |
-| `SIP_VAD_MIN_CHUNK` | `vad.min_chunk` |
+| `SIP_VAD_SILENCE_TRIGGER`   | `vad.silence_trigger`   |
+| `SIP_VAD_MAX_CHUNK`         | `vad.max_chunk`         |
+| `SIP_VAD_MIN_CHUNK`         | `vad.min_chunk`         |
 
 **Callee:**
 
-| Variable | Maps to |
-|----------|---------|
-| `SIP_AUTO_ANSWER` | `callee.auto_answer` (default: `true`) |
+| Variable           | Maps to                                |
+|--------------------|----------------------------------------|
+| `SIP_AUTO_ANSWER`  | `callee.auto_answer` (default: `true`) |
 | `SIP_ANSWER_DELAY` | `callee.answer_delay` (default: `1.0`) |
 
 **TTS runtime:**
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable         | Default                       | Description                           |
+|------------------|-------------------------------|---------------------------------------|
 | `PIPER_DATA_DIR` | `~/.local/share/piper-voices` | Directory for downloaded voice models |
 
 **STT runtime (faster-whisper):**
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `WHISPER_DATA_DIR` | `~/.local/share/faster-whisper-models` | Directory for downloaded Whisper models |
-| `WHISPER_MODEL` | `medium` | Default model size (`tiny`, `base`, `small`, `medium`, `large-v3`) |
-| `WHISPER_DEVICE` | `cpu` | Compute device (`cpu` or `cuda`) |
-| `WHISPER_COMPUTE_TYPE` | `int8` (CPU) / `float16` (CUDA) | Quantization type (`int8`, `float16`, `float32`) |
+| Variable               | Default                                | Description                                                        |
+|------------------------|----------------------------------------|--------------------------------------------------------------------|
+| `WHISPER_DATA_DIR`     | `~/.local/share/faster-whisper-models` | Directory for downloaded Whisper models                            |
+| `WHISPER_MODEL`        | `medium`                               | Default model size (`tiny`, `base`, `small`, `medium`, `large-v3`) |
+| `WHISPER_DEVICE`       | `cpu`                                  | Compute device (`cpu` or `cuda`)                                   |
+| `WHISPER_COMPUTE_TYPE` | `int8` (CPU) / `float16` (CUDA)        | Quantization type (`int8`, `float16`, `float32`)                   |
 
 **PJSIP native log routing:**
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PJSIP_LOG_LEVEL` | `3` | PJSIP log verbosity routed through loguru (0 = none … 6 = trace) |
-| `PJSIP_CONSOLE_LEVEL` | `4` | PJSIP native console output printed directly to stdout (4 = PJSIP default, 0 = suppressed) |
+| Variable              | Default | Description                                                                                |
+|-----------------------|---------|--------------------------------------------------------------------------------------------|
+| `PJSIP_LOG_LEVEL`     | `3`     | PJSIP log verbosity routed through loguru (0 = none … 6 = trace)                           |
+| `PJSIP_CONSOLE_LEVEL` | `4`     | PJSIP native console output printed directly to stdout (4 = PJSIP default, 0 = suppressed) |
 
 All PJSIP native output is captured by a `pj.LogWriter` subclass and forwarded to loguru (`classname="pjsip"`). `PJSIP_LOG_LEVEL` controls what the writer receives; `PJSIP_CONSOLE_LEVEL` controls what PJSIP additionally prints to stdout on its own. Set `PJSIP_CONSOLE_LEVEL=0` to suppress native output and rely solely on loguru.
 
@@ -1023,28 +1032,28 @@ Non-standard formats (stereo, different bit depths/rates) will produce warnings 
 
 ## Module Structure
 
-| File | Purpose |
-|------|---------|
-| `__init__.py` | Public API: `make_sip_call`, `SipCaller`, `SipCallee`, `SipEndpoint`, `SipCallError`, `CallResult`, config classes, `generate_wav`, `transcribe_wav`, `configure_logging`, `print_banner` |
-| `sip_endpoint.py` | `SipEndpoint` base class for PJSUA2 Endpoint lifecycle, `SipCaller(SipEndpoint)` with `make_call()` orchestration, `_PjLogWriter`, `_local_address_for()` |
-| `sip_call.py` | `SipCall(pj.Call)` shared base, `SipCallerCall` (caller-side media management), `SipCalleeCall` (callee-side hooks) |
-| `sip_media.py` | `SilenceDetector`, `AudioStreamPort`, `TranscriptionPort` — PJSUA2 `AudioMediaPort` subclasses |
-| `sip_account.py` | `SipAccount(pj.Account)` base, `SipCallerAccount` (incoming-call rejection), `SipCalleeAccount` (auto-answer dispatch) |
-| `sip_callee.py` | `SipCallee(SipEndpoint)` — incoming call handling orchestration |
-| `sip_types.py` | `CallResult` dataclass, `SipCallError`, `WavInfo` |
-| `sip_caller.py` | Legacy module (retained for imports) |
-| `sipconfig.py` | Pydantic v2 config models (`SipEndpointConfig`, `SipCallerConfig`, `SipCalleeConfig`) with YAML / env / override loading |
-| `vad.py` | `VADAudioBuffer` — voice activity detection buffer for live transcription |
-| `audio.py` | `resample_linear()` (numpy), `ensure_wav_16k_mono()` — audio format utilities |
-| `snddevice_list.py` | Sound device enumeration utility |
-| `tts/tts.py` | Piper TTS integration: text-to-WAV generation via Python API with optional resampling |
-| `tts/live.py` | Live TTS streaming: `PiperTTSProducer` (producer thread), `TTSMediaPort` (PJSIP consumer), `interactive_console()` |
-| `stt/stt.py` | Speech-to-text via faster-whisper: WAV transcription with Silero VAD pre-filtering and segment timestamps |
-| `stt/live.py` | Live STT streaming during calls |
-| `autoanswer/` | Callee auto-answer implementation (integrated as `callee_autoanswer` CLI subcommand) |
-| `realtime/` | Callee real-time TTS implementation (integrated as `callee_realtime-tts` CLI subcommand) |
-| `transcribe/` | Callee live-transcribe implementation (integrated as `callee_live-transcribe` CLI subcommand) |
-| `training/` | Voice training utilities: `record_dataset.py`, `record_gui.py` (standalone, not in CLI) — see [training README](sipstuff/training/README.md) |
+| File                | Purpose                                                                                                                                                                                   |
+|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `__init__.py`       | Public API: `make_sip_call`, `SipCaller`, `SipCallee`, `SipEndpoint`, `SipCallError`, `CallResult`, config classes, `generate_wav`, `transcribe_wav`, `configure_logging`, `print_banner` |
+| `sip_endpoint.py`   | `SipEndpoint` base class for PJSUA2 Endpoint lifecycle, `SipCaller(SipEndpoint)` with `make_call()` orchestration, `_PjLogWriter`, `_local_address_for()`                                 |
+| `sip_call.py`       | `SipCall(pj.Call)` shared base, `SipCallerCall` (caller-side media management), `SipCalleeCall` (callee-side hooks)                                                                       |
+| `sip_media.py`      | `SilenceDetector`, `AudioStreamPort`, `TranscriptionPort` — PJSUA2 `AudioMediaPort` subclasses                                                                                            |
+| `sip_account.py`    | `SipAccount(pj.Account)` base, `SipCallerAccount` (incoming-call rejection), `SipCalleeAccount` (auto-answer dispatch)                                                                    |
+| `sip_callee.py`     | `SipCallee(SipEndpoint)` — incoming call handling orchestration                                                                                                                           |
+| `sip_types.py`      | `CallResult` dataclass, `SipCallError`, `WavInfo`                                                                                                                                         |
+| `sip_caller.py`     | Legacy module (retained for imports)                                                                                                                                                      |
+| `sipconfig.py`      | Pydantic v2 config models (`SipEndpointConfig`, `SipCallerConfig`, `SipCalleeConfig`) with YAML / env / override loading                                                                  |
+| `vad.py`            | `VADAudioBuffer` — voice activity detection buffer for live transcription                                                                                                                 |
+| `audio.py`          | `resample_linear()` (numpy), `ensure_wav_16k_mono()` — audio format utilities                                                                                                             |
+| `snddevice_list.py` | Sound device enumeration utility                                                                                                                                                          |
+| `tts/tts.py`        | Piper TTS integration: text-to-WAV generation via Python API with optional resampling                                                                                                     |
+| `tts/live.py`       | Live TTS streaming: `PiperTTSProducer` (producer thread), `TTSMediaPort` (PJSIP consumer), `interactive_console()`                                                                        |
+| `stt/stt.py`        | Speech-to-text via faster-whisper: WAV transcription with Silero VAD pre-filtering and segment timestamps                                                                                 |
+| `stt/live.py`       | Live STT streaming during calls                                                                                                                                                           |
+| `autoanswer/`       | Callee auto-answer implementation (integrated as `callee_autoanswer` CLI subcommand)                                                                                                      |
+| `realtime/`         | Callee real-time TTS implementation (integrated as `callee_realtime-tts` CLI subcommand)                                                                                                  |
+| `transcribe/`       | Callee live-transcribe implementation (integrated as `callee_live-transcribe` CLI subcommand)                                                                                             |
+| `training/`         | Voice training utilities: `record_dataset.py`, `record_gui.py` (standalone, not in CLI) — see [training README](sipstuff/training/README.md)                                              |
 
 ![Audio device enumeration (sounddevice input/output devices)](Bildschirmfoto_2026-02-22_12-08-06.png)
 | `cli.py` | CLI entry point with six subcommands |
